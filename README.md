@@ -1,3 +1,5 @@
+## [Download latest release](https://github.com/ledoge/dogegen/releases/latest/download/release.zip)
+
 # About
 
 This is a minimal command-line test pattern generator for Windows 10+ with support for 8 and 10 bit color, both in SDR (BT.709) and HDR (PQ BT.2100). The "Resolve" XML protocol over TCP, as implemented as DisplayCAL and Calman, is also supported.
