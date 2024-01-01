@@ -458,6 +458,228 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
     WSACleanup();
 }
 
+const int MAX_BUFFER_SIZE = 1024;
+
+std::atomic<bool> discoveryActive;
+
+void PGenDiscoveryHandler(SOCKET udpSocket) {
+    sockaddr_in clientAddr = {};
+    int clientAddrSize = sizeof(clientAddr);
+
+    while (true) {
+        char buffer[MAX_BUFFER_SIZE];
+        int bytesRead = recvfrom(udpSocket, buffer, MAX_BUFFER_SIZE - 1, 0, reinterpret_cast<sockaddr *>(&clientAddr),
+                                 &clientAddrSize);
+
+        if (bytesRead > 0) {
+            buffer[bytesRead] = '\0'; // Null-terminate the received data
+            if (!strcmp(buffer, "Who is a PGenerator")) {
+                const char *response = "This is dogegen :)";
+                sendto(udpSocket, response, strlen(response), 0, reinterpret_cast<sockaddr *>(&clientAddr),
+                       clientAddrSize);
+                std::cerr << "Sent discovery response" << std::endl;
+            }
+        } else if (!discoveryActive) {
+            return;
+        } else {
+            std::cerr << "Error while receiving UDP data" << std::endl;
+        }
+    }
+}
+
+void StartPGen(bool isHdr) {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+        std::cerr << "WSAStartup failed" << std::endl;
+        return;
+    }
+
+    // Create UDP socket
+    SOCKET udpSocket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (udpSocket == INVALID_SOCKET) {
+        std::cerr << "Error creating UDP socket" << std::endl;
+        WSACleanup();
+        return;
+    }
+
+    sockaddr_in udpAddr;
+    udpAddr.sin_family = AF_INET;
+    udpAddr.sin_addr.s_addr = INADDR_ANY;
+    udpAddr.sin_port = htons(1977); // Listen on port 1977
+
+    // Bind UDP socket
+    if (bind(udpSocket, reinterpret_cast<sockaddr *>(&udpAddr), sizeof(udpAddr)) == SOCKET_ERROR) {
+        std::cerr << "Bind failed for UDP socket" << std::endl;
+        closesocket(udpSocket);
+        WSACleanup();
+        return;
+    }
+
+    // Create a thread to handle UDP connections
+    discoveryActive = true;
+    auto *udpThread = new std::thread(PGenDiscoveryHandler, udpSocket);
+
+    sockaddr_in serverAddr = {};
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(85); // Listen on port 85
+
+    SOCKET serverSocket;
+    bool switchedMode = false;
+
+    while (true) {
+        serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+        if (serverSocket == INVALID_SOCKET) {
+            std::cerr << "Error creating server socket" << std::endl;
+            goto cleanup;
+        }
+
+        // Enable address reuse
+        int enableReuse = 1;
+        if (setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&enableReuse), sizeof(int)) ==
+            SOCKET_ERROR) {
+            std::cerr << "Setsockopt failed" << std::endl;
+            goto cleanup;
+        }
+
+        if (bind(serverSocket, reinterpret_cast<sockaddr *>(&serverAddr), sizeof(serverAddr)) == SOCKET_ERROR) {
+            std::cerr << "Bind failed" << std::endl;
+            goto cleanup;
+        }
+
+        if (listen(serverSocket, SOMAXCONN) == SOCKET_ERROR) {
+            std::cerr << "Listen failed" << std::endl;
+            goto cleanup;
+        }
+
+        if (!switchedMode) {
+            format = DXGI_FORMAT_B8G8R8A8_UNORM;
+            hdr = isHdr;
+            changedMode = true;
+
+            std::cerr << "Switching to 8 bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
+            switchedMode = true;
+        }
+
+        std::cerr << "Waiting for incoming connection..." << std::endl;
+
+        SOCKET clientSocket = accept(serverSocket, nullptr, nullptr);
+        if (clientSocket == INVALID_SOCKET) {
+            std::cerr << "Accept failed" << std::endl;
+            goto cleanup;
+        }
+
+        std::cerr << "Client connected. Closing server socket." << std::endl;
+        closesocket(serverSocket);
+
+        while (true) {
+            // Read messages from the client
+            char buffer[MAX_BUFFER_SIZE];
+            int bytesRead = 0;
+
+            bool error = false;
+            bool closed = false;
+
+            while (true) {
+                int result = recv(clientSocket, buffer + bytesRead, 1, 0);
+                if (result > 0 && bytesRead != MAX_BUFFER_SIZE - 1) {
+                    if (buffer[bytesRead] == 0x0d && buffer[bytesRead - 1] == 0x2) {
+                        buffer[bytesRead - 1] = '\0';
+                        break;
+                    }
+                    bytesRead++;
+                } else if (result == 0) {
+                    std::cerr << "Client disconnected." << std::endl;
+                    closed = true;
+                    break;
+                } else {
+                    std::cerr << "Error while receiving data" << std::endl;
+                    error = true;
+                    break;
+                }
+            }
+
+            if (closed || error) {
+                closesocket(clientSocket);
+                break;
+            }
+
+            std::string command(buffer);
+
+            // std::cerr << command << std::endl;
+
+            const char *response = nullptr;
+
+            if (command == "CMD:GET_RESOLUTION") {
+                response = "OK:3840x2160";
+            } else if (command == "CMD:GET_GPU_MEMORY") {
+                response = "OK:192";
+            } else if (command == "TESTTEMPLATE:PatternDynamic:0,0,0") {
+                the_input = new std::vector<DrawCommand>;
+            } else if (command.rfind("RGB=RECTANGLE", 0) == 0) {
+                int screenWidth = 3840;
+                int screenHeight = 2160;
+
+                auto maxV = (float) ((1 << 8) - 1);
+
+                std::istringstream ss(command);
+
+                int width, height, idk, r, g, b, bg_r, bg_g, bg_b;
+
+                char d;
+                ss.ignore(std::numeric_limits<std::streamsize>::max(), ';');  // Skip "RGB=RECTANGLE;"
+                ss >> width >> d >> height >> d >> idk >> d >> r >> d >> g >> d >> b >> d >> bg_r >> d >> bg_g >> d
+                   >> bg_b;
+
+                // Check for any extraction errors
+                if (ss.fail()) {
+                    std::cerr << "Failed to parse RGB=RECTANGLE command\n";
+                } else {
+                    auto commands = new std::vector<DrawCommand>;
+                    int bgColor[3] = {bg_r, bg_g, bg_b};
+                    DrawCommand background = {};
+                    populate_window_draw(background, 100, bgColor, maxV);
+                    commands->push_back(background);
+
+                    int color[3] = {r, g, b};
+                    DrawCommand draw = {};
+                    populate_window_draw(draw, 0, color, maxV);
+
+                    // calculate coordinates based on supplied width and height
+                    draw.x1 = -1.0f * width / screenWidth;
+                    draw.y1 = 1.0f * height / screenHeight;
+                    draw.x2 = -1 * draw.x1;
+                    draw.y2 = -1 * draw.y1;
+
+                    commands->push_back(draw);
+                    the_input = commands;
+                }
+            } else {
+                the_input = new std::vector<DrawCommand>;  // fallback: just draw black
+            }
+
+            if (response) {
+                send(clientSocket, response, (int) strlen(response) + 1, 0);
+            }
+
+        }
+        std::cerr << "Client disconnected. Reopening server socket." << std::endl;
+        closesocket(clientSocket);
+    }
+    cleanup:
+    discoveryActive = false;
+    if (udpSocket != INVALID_SOCKET) {
+        closesocket(udpSocket);
+    }
+    if (udpThread) {
+        udpThread->join();
+    }
+    if (serverSocket != INVALID_SOCKET) {
+        closesocket(serverSocket);
+    }
+    WSACleanup();
+}
+
 void InputReader() {
     bool print_ok = false;
     while (true) {
@@ -514,6 +736,18 @@ void InputReader() {
             }
 
             StartResolve(window, ip, isHdr);
+        } else if (command_type.rfind("pgen", 0) == 0) { // starts with resolve
+            bool isHdr;
+
+            if (command_type == "pgen" || command_type == "pgen_hdr") {
+                isHdr = true;
+            } else if (command_type == "pgen_sdr") {
+                isHdr = false;
+            } else {
+                std::cout << "error: unrecognized pgen command" << std::endl;
+                continue;
+            }
+            StartPGen(isHdr);
         } else if (command_type == "flicker") {
             unsigned int tmp;
 
@@ -581,7 +815,7 @@ int main(int argc, char *argv[]) {
         DWORD windowStyle = (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX;
 
         RECT initialRect = {0, 0, 1280, 720};
-        AdjustWindowRectEx(&initialRect, windowStyle, FALSE, 0);
+        AdjustWindowRect(&initialRect, windowStyle, FALSE);
         LONG initialWidth = initialRect.right - initialRect.left;
         LONG initialHeight = initialRect.bottom - initialRect.top;
 
