@@ -437,7 +437,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
 
             bool isFullField = geometryX == 0 && geometryY == 0 && geometryCX == 1 && geometryCY == 1;
 
-            if (window == 0 && !isFullField) {
+            if (window == 0 || isFullField) {
                 // use supplied coordinates instead of window %
                 draw.x1 = -1 + 2 * geometryX;
                 draw.y1 = 1 - 2 * geometryY;
