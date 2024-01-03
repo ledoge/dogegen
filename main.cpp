@@ -447,7 +447,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
             commands->push_back(draw);
         }
 
-        std::cerr << xmlData << std::endl;
+        // std::cerr << xmlData << std::endl;
 
         the_input = commands;
         pending = true;
