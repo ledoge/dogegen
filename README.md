@@ -38,6 +38,12 @@ As this is an extremely limited implementation, specific settings are required i
 
 As soon as you render a pattern in HCFR, it will try to discover a PGenerator instance via a UDP broadcast. Since there is no option to manually specify an IP, you must be connected to a network for this to work, even if you are running it on the same machine.
 
+Optionally, an 8 bit RGB triplet can be specified, which will be displayed as a full field "passive" pattern whenever HCFR is not displaying any patches. Example:
+
+```
+pgen 100 100 100
+```
+
 ## Manual pattern generation
 
 First, switch the TPG into the desired bit depth + HDR mode, e.g.
