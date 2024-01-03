@@ -135,12 +135,13 @@ struct TmpColors {
     int color4[3];
 };
 
-std::atomic<std::vector<DrawCommand> *> the_input;
-std::atomic<bool> changedMode;
+std::vector<DrawCommand> *the_input;
+bool changedMode;
 DXGI_FORMAT format;
 bool hdr;
+unsigned int flicker;
 
-std::atomic<unsigned int> flicker;
+std::atomic<bool> pending;
 
 void populate_window_draw(DrawCommand &command, float windowSize, int color[3], float maxV) {
     float num = sqrt(windowSize / 100);
@@ -377,20 +378,20 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
     format = DXGI_FORMAT_R10G10B10A2_UNORM;
     hdr = isHdr;
     changedMode = true;
+    the_input = new std::vector<DrawCommand>;
+    pending = true;
 
     std::cerr << "Switching to 10 bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
 
     while (true) {
-        while (the_input != nullptr || changedMode) {} // wait for pending stuff
+        while (pending) {} // wait for pending stuff
 
         // Receive the data length
         uint32_t dataLen;
         int bytesReceived = recv(clientSocket, reinterpret_cast<char *>(&dataLen), sizeof(dataLen), 0);
         if (bytesReceived != sizeof(dataLen)) {
             std::cerr << "Failed to receive data length" << std::endl;
-            closesocket(clientSocket);
-            WSACleanup();
-            return;
+            goto cleanup;
         }
 
         // Convert the data length from network byte order to host byte order
@@ -401,9 +402,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
         bytesReceived = recv(clientSocket, &xmlData[0], dataLen, 0);
         if (bytesReceived != dataLen) {
             std::cerr << "Failed to receive XML data" << std::endl;
-            closesocket(clientSocket);
-            WSACleanup();
-            return;
+            goto cleanup;
         }
 
         // Variables to store parsed values
@@ -448,14 +447,18 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
             commands->push_back(draw);
         }
 
-        // std::cerr << xmlData << std::endl;
+        std::cerr << xmlData << std::endl;
 
         the_input = commands;
+        pending = true;
     }
 
+    cleanup:
     // Close the socket and cleanup
     closesocket(clientSocket);
     WSACleanup();
+    the_input = new std::vector<DrawCommand>;
+    pending = true;
 }
 
 const int MAX_BUFFER_SIZE = 1024;
@@ -487,7 +490,7 @@ void PGenDiscoveryHandler(SOCKET udpSocket) {
     }
 }
 
-void StartPGen(bool isHdr) {
+void StartPGen(bool isHdr, int passive[3]) {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
         std::cerr << "WSAStartup failed" << std::endl;
@@ -527,6 +530,15 @@ void StartPGen(bool isHdr) {
     SOCKET serverSocket;
     bool switchedMode = false;
 
+    const auto maxV = (float) ((1 << 8) - 1);
+
+    std::vector<DrawCommand> passiveV;
+    if (passive) {
+        DrawCommand draw;
+        populate_window_draw(draw, 100, passive, maxV);
+        passiveV.push_back(draw);
+    }
+
     while (true) {
         serverSocket = socket(AF_INET, SOCK_STREAM, 0);
         if (serverSocket == INVALID_SOCKET) {
@@ -552,6 +564,8 @@ void StartPGen(bool isHdr) {
             goto cleanup;
         }
 
+        while (pending) {} // wait for pending stuff
+
         if (!switchedMode) {
             format = DXGI_FORMAT_B8G8R8A8_UNORM;
             hdr = isHdr;
@@ -560,6 +574,9 @@ void StartPGen(bool isHdr) {
             std::cerr << "Switching to 8 bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
             switchedMode = true;
         }
+
+        the_input = new std::vector<DrawCommand>(passiveV); // draw passive patch while waiting for connection
+        pending = true;
 
         std::cerr << "Waiting for incoming connection..." << std::endl;
 
@@ -573,6 +590,8 @@ void StartPGen(bool isHdr) {
         closesocket(serverSocket);
 
         while (true) {
+            while (pending) {} // wait for pending stuff
+
             // Read messages from the client
             char buffer[MAX_BUFFER_SIZE];
             int bytesRead = 0;
@@ -615,12 +634,10 @@ void StartPGen(bool isHdr) {
             } else if (command == "CMD:GET_GPU_MEMORY") {
                 response = "OK:192";
             } else if (command == "TESTTEMPLATE:PatternDynamic:0,0,0") {
-                the_input = new std::vector<DrawCommand>;
+                the_input = new std::vector<DrawCommand>(passiveV);  // done displaying patterns
             } else if (command.rfind("RGB=RECTANGLE", 0) == 0) {
                 int screenWidth = 3840;
                 int screenHeight = 2160;
-
-                auto maxV = (float) ((1 << 8) - 1);
 
                 std::istringstream ss(command);
 
@@ -654,9 +671,13 @@ void StartPGen(bool isHdr) {
                     commands->push_back(draw);
                     the_input = commands;
                 }
+            } else if (command.rfind("RGB=TEXT", 0) == 0 || command.rfind("RGB=IMAGE", 0) == 0) {
+                // ignore
             } else {
-                the_input = new std::vector<DrawCommand>;  // fallback: just draw black
+                the_input = new std::vector<DrawCommand>; // draw nothing
             }
+
+            pending = true;
 
             if (response) {
                 send(clientSocket, response, (int) strlen(response) + 1, 0);
@@ -677,13 +698,18 @@ void StartPGen(bool isHdr) {
     if (serverSocket != INVALID_SOCKET) {
         closesocket(serverSocket);
     }
+    if (switchedMode) {
+        while (pending) {} // wait for pending stuff
+        the_input = new std::vector<DrawCommand>();
+        pending = true;
+    }
     WSACleanup();
 }
 
 void InputReader() {
     bool print_ok = false;
     while (true) {
-        while (the_input != nullptr || changedMode) {
+        while (pending) {
             // nothing
         }
         if (print_ok) {
@@ -701,6 +727,7 @@ void InputReader() {
                 the_input = new std::vector<DrawCommand>;
                 print_ok = true;
                 changedMode = true;
+                pending = true;
             } else {
                 std::cout << "error: invalid mode" << std::endl;
             }
@@ -739,6 +766,28 @@ void InputReader() {
         } else if (command_type.rfind("pgen", 0) == 0) { // starts with resolve
             bool isHdr;
 
+            int *p = nullptr;
+            if (!ss.eof()) {
+                p = new int[3];
+                if (!(ss >> p[0] >> p[1] >> p[2])) {
+                    std::cout << "error: must specify r g b" << std::endl;
+                    continue;
+                }
+                else {
+                    bool invalid = false;
+                    for (int i = 0; i < 3; i++) {
+                        if (p[i] < 0 || p[i] > 255) {
+                            std::cout << "error: invalid rgb values" << std::endl;
+                            invalid = true;
+                            break;
+                        }
+                    }
+                    if (invalid) {
+                        continue;
+                    }
+                }
+            }
+
             if (command_type == "pgen" || command_type == "pgen_hdr") {
                 isHdr = true;
             } else if (command_type == "pgen_sdr") {
@@ -747,15 +796,17 @@ void InputReader() {
                 std::cout << "error: unrecognized pgen command" << std::endl;
                 continue;
             }
-            StartPGen(isHdr);
+            StartPGen(isHdr, p);
+            delete[] p;
         } else if (command_type == "flicker") {
             unsigned int tmp;
 
             if (!(ss >> tmp)) {
-                std::cout << "error: no duty cycle specified";
+                std::cout << "error: must specify number of black frames";
             } else {
                 flicker = tmp;
                 print_ok = true;
+                pending = true;
             }
         } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
             auto tmp = new std::vector<DrawCommand>;
@@ -765,6 +816,7 @@ void InputReader() {
                 std::cout << "error: invalid draw command(s)" << std::endl;
             }
             the_input = tmp;
+            pending = true;
         } else {
             std::cout << "error: unrecognized command" << std::endl;
         }
@@ -1049,7 +1101,9 @@ int main(int argc, char *argv[]) {
             DispatchMessageW(&msg);
         }
 
-        if (global_windowDidResize || changedMode) {
+        bool doStuff = pending;
+
+        if (global_windowDidResize || doStuff && changedMode) {
             deviceContext->OMSetRenderTargets(0, 0, 0);
             d3d11FrameBufferView->Release();
 
@@ -1067,18 +1121,18 @@ int main(int argc, char *argv[]) {
             assert(SUCCEEDED(res));
             d3d11FrameBuffer->Release();
 
-            if (changedMode) {
+            if (doStuff && changedMode) {
                 updateColorSpace(d3d11SwapChain);
                 flicker = 0;
+                changedMode = false;
             }
 
             global_windowDidResize = false;
-            changedMode = false;
         }
 
         // example: draw -1 1 1 -1 0 0 0 256 256 256 0 0 0 256 256 256 1
         static auto commands = new std::vector<DrawCommand>;
-        if (the_input != nullptr) {
+        if (doStuff && the_input != nullptr) {
             delete commands;
             commands = the_input;
             the_input = nullptr;
@@ -1104,7 +1158,7 @@ int main(int argc, char *argv[]) {
         static unsigned int flickerCycle;
         static unsigned int flickerCounter;
 
-        if (flickerCycle != flicker) {
+        if (doStuff && flickerCycle != flicker) {
             flickerCycle = flicker;
             flickerCounter = 0;
         }
@@ -1135,6 +1189,10 @@ int main(int argc, char *argv[]) {
         }
 
         d3d11SwapChain->Present(1, 0);
+
+        if (doStuff) {
+            pending = false;
+        }
     }
 
     exit(0);
