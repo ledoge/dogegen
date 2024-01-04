@@ -11,6 +11,8 @@
 #include <atomic>
 #include <vector>
 #include <cassert>
+#include <mutex>
+#include <condition_variable>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
@@ -141,6 +143,8 @@ DXGI_FORMAT format;
 bool hdr;
 unsigned int flicker;
 
+std::mutex m;
+std::condition_variable cv;
 std::atomic<bool> pending;
 
 void populate_window_draw(DrawCommand &command, float windowSize, int color[3], float maxV) {
@@ -334,6 +338,16 @@ void parseCalibrationXML(const std::string &xmlData, int &colorRed, int &colorGr
     }
 }
 
+void set_pending() {
+    std::lock_guard lk(m);
+    pending.store(true, std::memory_order_release);
+}
+
+void wait_pending() {
+    std::unique_lock lk(m);
+    cv.wait(lk, []{ return !pending.load(std::memory_order_acquire); });
+}
+
 void StartResolve(float window, const std::string &ip, bool isHdr) {
     // Initialize Winsock
     WSADATA wsaData;
@@ -379,12 +393,12 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
     hdr = isHdr;
     changedMode = true;
     the_input = new std::vector<DrawCommand>;
-    pending = true;
+    set_pending();
 
     std::cerr << "Switching to 10 bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
 
     while (true) {
-        while (pending) {} // wait for pending stuff
+        wait_pending(); // wait for pending stuff
 
         // Receive the data length
         uint32_t dataLen;
@@ -450,7 +464,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
         // std::cerr << xmlData << std::endl;
 
         the_input = commands;
-        pending = true;
+        set_pending();
     }
 
     cleanup:
@@ -458,7 +472,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
     closesocket(clientSocket);
     WSACleanup();
     the_input = new std::vector<DrawCommand>;
-    pending = true;
+    set_pending();
 }
 
 const int MAX_BUFFER_SIZE = 1024;
@@ -564,7 +578,7 @@ void StartPGen(bool isHdr, int passive[3]) {
             goto cleanup;
         }
 
-        while (pending) {} // wait for pending stuff
+        wait_pending(); // wait for pending stuff
 
         if (!switchedMode) {
             format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -576,7 +590,7 @@ void StartPGen(bool isHdr, int passive[3]) {
         }
 
         the_input = new std::vector<DrawCommand>(passiveV); // draw passive patch while waiting for connection
-        pending = true;
+        set_pending();
 
         std::cerr << "Waiting for incoming connection..." << std::endl;
 
@@ -590,7 +604,7 @@ void StartPGen(bool isHdr, int passive[3]) {
         closesocket(serverSocket);
 
         while (true) {
-            while (pending) {} // wait for pending stuff
+            wait_pending(); // wait for pending stuff
 
             // Read messages from the client
             char buffer[MAX_BUFFER_SIZE];
@@ -677,7 +691,7 @@ void StartPGen(bool isHdr, int passive[3]) {
                 the_input = new std::vector<DrawCommand>; // draw nothing
             }
 
-            pending = true;
+            set_pending();
 
             if (response) {
                 send(clientSocket, response, (int) strlen(response) + 1, 0);
@@ -699,9 +713,9 @@ void StartPGen(bool isHdr, int passive[3]) {
         closesocket(serverSocket);
     }
     if (switchedMode) {
-        while (pending) {} // wait for pending stuff
+        wait_pending(); // wait for pending stuff
         the_input = new std::vector<DrawCommand>();
-        pending = true;
+        set_pending();
     }
     WSACleanup();
 }
@@ -709,9 +723,7 @@ void StartPGen(bool isHdr, int passive[3]) {
 void InputReader() {
     bool print_ok = false;
     while (true) {
-        while (pending) {
-            // nothing
-        }
+        wait_pending(); // wait for pending stuff
         if (print_ok) {
             std::cout << "ok" << std::endl;
             print_ok = false;
@@ -727,7 +739,7 @@ void InputReader() {
                 the_input = new std::vector<DrawCommand>;
                 print_ok = true;
                 changedMode = true;
-                pending = true;
+                set_pending();
             } else {
                 std::cout << "error: invalid mode" << std::endl;
             }
@@ -806,17 +818,17 @@ void InputReader() {
             } else {
                 flicker = tmp;
                 print_ok = true;
-                pending = true;
+                set_pending();
             }
         } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
             auto tmp = new std::vector<DrawCommand>;
             if (parse_draw_string(input, *tmp)) {
                 print_ok = true;
+                the_input = tmp;
+                set_pending();
             } else {
                 std::cout << "error: invalid draw command(s)" << std::endl;
             }
-            the_input = tmp;
-            pending = true;
         } else {
             std::cout << "error: unrecognized command" << std::endl;
         }
@@ -1101,7 +1113,11 @@ int main(int argc, char *argv[]) {
             DispatchMessageW(&msg);
         }
 
-        bool doStuff = pending;
+        bool doStuff = false;
+
+        if (pending.load(std::memory_order_acquire) && m.try_lock()) {
+            doStuff = true;
+        }
 
         if (global_windowDidResize || doStuff && changedMode) {
             deviceContext->OMSetRenderTargets(0, 0, 0);
@@ -1191,7 +1207,9 @@ int main(int argc, char *argv[]) {
         d3d11SwapChain->Present(1, 0);
 
         if (doStuff) {
-            pending = false;
+            pending.store(false, std::memory_order_release);
+            m.unlock();
+            cv.notify_one();
         }
     }
 
