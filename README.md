@@ -8,6 +8,8 @@ This is a minimal command-line test pattern generator for Windows 10+ with suppo
 
 Running the exe will give you two windows: A console window for entering commands (see below) and a D3D11 window for rendering patterns, which can be freely resized and switched into borderless fullscreen with Alt+Enter.
 
+For automation or creating shortcuts, commands can be supplied as command line arguments. Example: `dogegen.exe "resolve 127.0.0.1"`
+
 ## Use with DisplayCAL
 
 In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". When prompted to connect the TPG to DisplayCAL, enter the following command:
