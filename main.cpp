@@ -339,7 +339,6 @@ void parseCalibrationXML(const std::string &xmlData, int &colorRed, int &colorGr
 }
 
 void set_pending() {
-    std::lock_guard lk(m);
     pending.store(true, std::memory_order_release);
 }
 
@@ -720,8 +719,9 @@ void StartPGen(bool isHdr, int passive[3]) {
     WSACleanup();
 }
 
-void InputReader() {
+void InputReader(char *cmds[], int num_cmds) {
     bool print_ok = false;
+    int cmds_processed = 0;
     while (true) {
         wait_pending(); // wait for pending stuff
         if (print_ok) {
@@ -730,7 +730,13 @@ void InputReader() {
         }
         std::cout << "> " << std::flush;
         std::string input;
-        getline(std::cin, input);
+        if (cmds_processed < num_cmds) {
+            input = std::string(cmds[cmds_processed++]);
+            std::cout << input << std::endl;
+        }
+        else {
+            getline(std::cin, input);
+        }
         std::stringstream ss(input);
         std::string command_type;
         ss >> command_type;
@@ -853,7 +859,7 @@ int main(int argc, char *argv[]) {
 
     SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
 
-    std::thread t1(InputReader);
+    std::thread t1(InputReader, &argv[1], argc - 1);
 
     HINSTANCE hInstance = GetModuleHandle(0);
 
