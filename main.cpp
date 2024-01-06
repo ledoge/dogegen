@@ -143,6 +143,9 @@ DXGI_FORMAT format;
 bool hdr;
 unsigned int flicker;
 
+bool setMetadata;
+DXGI_HDR_METADATA_HDR10 *metadata;
+
 std::mutex m;
 std::condition_variable cv;
 std::atomic<bool> pending;
@@ -663,7 +666,7 @@ void StartPGen(bool isHdr, int passive[3]) {
 
                 // Check for any extraction errors
                 if (ss.fail()) {
-                    std::cerr << "Failed to parse RGB=RECTANGLE command\n";
+                    std::cerr << "Failed to parse RGB=RECTANGLE command" << std::endl;
                 } else {
                     auto commands = new std::vector<DrawCommand>;
                     int bgColor[3] = {bg_r, bg_g, bg_b};
@@ -826,15 +829,33 @@ void InputReader(char *cmds[], int num_cmds) {
                 print_ok = true;
                 set_pending();
             }
-        } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
-            auto tmp = new std::vector<DrawCommand>;
-            if (parse_draw_string(input, *tmp)) {
-                print_ok = true;
-                the_input = tmp;
-                set_pending();
+        } else if (command_type == "maxcll") {
+            int tmp;
+
+            if (!(ss >> tmp) || tmp < -1 || tmp > 10000) {
+                std::cout << "error: must specify value between -1 and 10000" << std::endl;
             } else {
-                std::cout << "error: invalid draw command(s)" << std::endl;
+                if (tmp != -1) {
+                    metadata = new DXGI_HDR_METADATA_HDR10 { };
+                    metadata->MaxMasteringLuminance = \
+                    metadata->MaxContentLightLevel = \
+                    metadata->MaxFrameAverageLightLevel = \
+                    tmp;
+                }
+                setMetadata = true;
+                print_ok = true;
+                set_pending();
             }
+
+        } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
+                auto tmp = new std::vector<DrawCommand>;
+                if (parse_draw_string(input, *tmp)) {
+                    print_ok = true;
+                    the_input = tmp;
+                    set_pending();
+                } else {
+                    std::cout << "error: invalid draw command(s)" << std::endl;
+                }
         } else {
             std::cout << "error: unrecognized command" << std::endl;
         }
@@ -951,7 +972,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     // Create Swap Chain
-    IDXGISwapChain3 *d3d11SwapChain;
+    IDXGISwapChain4 *d3d11SwapChain;
     {
         // Get DXGI Factory (needed to create Swap Chain)
         IDXGIFactory2 *dxgiFactory;
@@ -997,7 +1018,7 @@ int main(int argc, char *argv[]) {
         // this needs to come after creating the swapchain
         dxgiFactory->MakeWindowAssociation(hwnd, DXGI_MWA_NO_WINDOW_CHANGES);
 
-        hResult = tmpSwapChain->QueryInterface(__uuidof(IDXGISwapChain3), (LPVOID *) &d3d11SwapChain);
+        hResult = tmpSwapChain->QueryInterface(__uuidof(IDXGISwapChain4), (LPVOID *) &d3d11SwapChain);
         assert(SUCCEEDED(hResult));
         tmpSwapChain->Release();
 
@@ -1150,6 +1171,18 @@ int main(int argc, char *argv[]) {
             }
 
             global_windowDidResize = false;
+        }
+
+        if (doStuff && setMetadata) {
+            if (metadata) {
+                d3d11SwapChain->SetHDRMetaData(DXGI_HDR_METADATA_TYPE_HDR10, sizeof(*metadata), metadata);
+                delete metadata;
+                metadata = nullptr;
+            }
+            else {
+                d3d11SwapChain->SetHDRMetaData(DXGI_HDR_METADATA_TYPE_NONE, 0, nullptr);
+            }
+            setMetadata = false;
         }
 
         // example: draw -1 1 1 -1 0 0 0 256 256 256 0 0 0 256 256 256 1
