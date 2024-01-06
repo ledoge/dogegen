@@ -1,4 +1,5 @@
 ## [Download latest release](https://github.com/ledoge/dogegen/releases/latest/download/release.zip)
+([Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) required, which you likely already have installed)
 
 # About
 
@@ -48,7 +49,7 @@ pgen 100 100 100
 
 ## Setting HDR metadata
 
-If you require HDR metadata (specifically maxCLL, maxFALL and maxMDL) to be sent, you can enter the following command first:
+If you require HDR metadata (specifically maxCLL, maxFALL and maxDML) to be sent, you can enter the following command first:
 
 ```
 maxcll 1000
