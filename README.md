@@ -57,6 +57,8 @@ maxcll 1000
 
 The number is in nits and must be between 0 and 10000. Note that this uses the DXGI [SetHDRMetadata](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_5/nf-dxgi1_5-idxgiswapchain4-sethdrmetadata) function, which does not guarantee that the metadata is actually sent to the display. On my Windows 10 machine with an NVIDIA GPU, it seems to be sent whenever the TPG window is fullscreened.
 
+A value of -1 unsets the metadata, though I don't know what the effect of that is supposed to be.
+
 ## Manual pattern generation
 
 First, switch the TPG into the desired bit depth + HDR mode, e.g.
