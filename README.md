@@ -8,7 +8,7 @@ This is a minimal command-line test pattern generator for Windows 10+ with suppo
 
 Running the exe will give you two windows: A console window for entering commands (see below) and a D3D11 window for rendering patterns, which can be freely resized and switched into borderless fullscreen with Alt+Enter.
 
-For automation or creating shortcuts, commands can be supplied as command line arguments. Example: `dogegen.exe "resolve 127.0.0.1"`
+For automation or creating shortcuts, commands can be supplied as command line arguments. Example: `dogegen.exe "maxcll 1000" "resolve 127.0.0.1"`
 
 ## Use with DisplayCAL
 
@@ -45,6 +45,16 @@ Optionally, an 8 bit RGB triplet can be specified, which will be displayed as a 
 ```
 pgen 100 100 100
 ```
+
+## Setting HDR metadata
+
+If you require HDR metadata (specifically maxCLL, maxFALL and maxMDL) to be sent, you can enter the following command first:
+
+```
+maxcll 1000
+```
+
+The number is in nits and must be between 0 and 10000. Note that this uses the DXGI [SetHDRMetadata](https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_5/nf-dxgi1_5-idxgiswapchain4-sethdrmetadata) function, which does not guarantee that the metadata is actually sent to the display. On my Windows 10 machine with an NVIDIA GPU, it seems to be sent whenever the TPG window is fullscreened.
 
 ## Manual pattern generation
 
