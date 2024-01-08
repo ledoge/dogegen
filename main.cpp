@@ -504,7 +504,7 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
         }
 
         if (targetBits != 8 && targetBits != 10) {
-            std::cerr << "Unsupported bit depth, expected 8 or 10";
+            std::cerr << "Unsupported bit depth, expected 8 or 10" << std::endl;
             continue;
         }
 
