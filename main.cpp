@@ -150,6 +150,8 @@ std::mutex m;
 std::condition_variable cv;
 std::atomic<bool> pending;
 
+std::atomic<bool> debug;
+
 void populate_window_draw(DrawCommand &command, float windowSize, int color[3], float maxV) {
     float num = sqrt(windowSize / 100);
 
@@ -163,6 +165,23 @@ void populate_window_draw(DrawCommand &command, float windowSize, int color[3], 
         command.color2[i] = color[i] / maxV;
         command.color3[i] = color[i] / maxV;
         command.color4[i] = color[i] / maxV;
+    }
+    command.quant = 0;
+}
+
+void populate_window_draw(DrawCommand &command, float windowSize, float color[3]) {
+    float num = sqrt(windowSize / 100);
+
+    command.x1 = -1 * num;
+    command.y1 = 1 * num;
+    command.x2 = 1 * num;
+    command.y2 = -1 * num;
+
+    for (int i = 0; i < 3; i++) {
+        command.color1[i] = color[i];
+        command.color2[i] = color[i];
+        command.color3[i] = color[i];
+        command.color4[i] = color[i];
     }
     command.quant = 0;
 }
@@ -298,9 +317,9 @@ bool parse_mode_string(const std::string &mode_string, DXGI_FORMAT *format, bool
 
 // Helper function to extract a numeric value from an attribute
 template<typename T>
-T extractAttributeValue(const std::string &xmlData, const std::string &attributeName, size_t startPos) {
+T getAttr(const std::string &xmlData, const std::string &attributeName, size_t startPos, size_t endPos) {
     size_t attributePos = xmlData.find(attributeName + "=\"", startPos);
-    if (attributePos != std::string::npos) {
+    if (attributePos != std::string::npos && attributePos < endPos) {
         size_t valueStart = attributePos + attributeName.length() + 2;
         size_t valueEnd = xmlData.find("\"", valueStart);
         if (valueEnd != std::string::npos) {
@@ -310,34 +329,85 @@ T extractAttributeValue(const std::string &xmlData, const std::string &attribute
     return static_cast<T>(0); // Default value if attribute not found or parsing fails
 }
 
-void parseCalibrationXML(const std::string &xmlData, int &colorRed, int &colorGreen, int &colorBlue, int &colorBits,
-                         int &backgroundRed, int &backgroundGreen, int &backgroundBlue, int &backgroundBits,
-                         float &geometryX, float &geometryY, float &geometryCX, float &geometryCY) {
+void parseColorXML(const std::string &xmlData, size_t start, float &colorRed, float &colorGreen, float &colorBlue,
+                   int &bits) {
+    size_t endPos = xmlData.find('>', start);
+    // if this is not colex: use subsequent colex, if it exists
+    if (xmlData.rfind("<colex", 0) == std::string::npos && endPos == xmlData.find("><colex", start)) {
+        start = endPos + 1;
+        endPos = xmlData.find('>', start);
+    }
+    bits = getAttr<int>(xmlData, "bits", start, endPos);
+    if (bits == 0) {
+        bits = 8;
+    }
+    int maxV = (1 << bits) - 1;
+    colorRed = getAttr<float>(xmlData, "red", start, endPos) / maxV;
+    colorGreen = getAttr<float>(xmlData, "green", start, endPos) / maxV;
+    colorBlue = getAttr<float>(xmlData, "blue", start, endPos) / maxV;
+}
+
+void parseGeometryXML(const std::string &xmlData, size_t start, float &geometryX, float &geometryY, float &geometryCX,
+                      float &geometryCY) {
+    size_t endPos = xmlData.find('>', start);
+    geometryX = getAttr<float>(xmlData, "x", start, endPos);
+    geometryY = getAttr<float>(xmlData, "y", start, endPos);
+    geometryCX = getAttr<float>(xmlData, "cx", start, endPos);
+    geometryCY = getAttr<float>(xmlData, "cy", start, endPos);
+}
+
+void parseLightspaceCalibrationXML(const std::string &xmlData, float &colorRed, float &colorGreen, float &colorBlue,
+                                   float &backgroundRed, float &backgroundGreen, float &backgroundBlue,
+                                   float &geometryX, float &geometryY, float &geometryCX, float &geometryCY,
+                                   int &targetBits) {
+    // just making guesses based on how PGenerator parses this...
+    bool hasBg = false;
+
+    size_t firstRect = xmlData.find("<rectangle");
+    size_t secondRect = xmlData.find("<rectangle", firstRect + 10);
+
+    size_t firstColor = xmlData.find("<col", firstRect);
+    size_t secondColor;
+
+    if (secondRect != std::string::npos) {
+        hasBg = true;
+        secondColor = xmlData.find("<col", secondRect);
+    }
+
+    if (!hasBg) {
+        parseColorXML(xmlData, firstColor, colorRed, colorGreen, colorBlue, targetBits);
+        backgroundRed = backgroundGreen = backgroundBlue = 0;
+        size_t geometryPos = xmlData.find("<geometry", firstRect);
+        parseGeometryXML(xmlData, geometryPos, geometryX, geometryY, geometryCX, geometryCY);
+    } else {
+        int bgBits;
+        parseColorXML(xmlData, firstColor, backgroundRed, backgroundGreen, backgroundBlue, bgBits);
+        parseColorXML(xmlData, secondColor, colorRed, colorGreen, colorBlue, targetBits);
+        size_t geometryPos = xmlData.find("<geometry", secondRect);
+        parseGeometryXML(xmlData, geometryPos, geometryX, geometryY, geometryCX, geometryCY);
+    }
+}
+
+void parseCalibrationXML(const std::string &xmlData, float &colorRed, float &colorGreen, float &colorBlue,
+                         float &backgroundRed, float &backgroundGreen, float &backgroundBlue,
+                         float &geometryX, float &geometryY, float &geometryCX, float &geometryCY, int &targetBits) {
     // Find the position of "color" tag
     size_t colorPos = xmlData.find("<color");
     if (colorPos != std::string::npos) {
-        colorRed = extractAttributeValue<int>(xmlData, "red", colorPos);
-        colorGreen = extractAttributeValue<int>(xmlData, "green", colorPos);
-        colorBlue = extractAttributeValue<int>(xmlData, "blue", colorPos);
-        colorBits = extractAttributeValue<int>(xmlData, "bits", colorPos);
+        parseColorXML(xmlData, colorPos, colorRed, colorGreen, colorBlue, targetBits);
     }
 
     // Find the position of "background" tag
     size_t backgroundPos = xmlData.find("<background");
     if (backgroundPos != std::string::npos) {
-        backgroundRed = extractAttributeValue<int>(xmlData, "red", backgroundPos);
-        backgroundGreen = extractAttributeValue<int>(xmlData, "green", backgroundPos);
-        backgroundBlue = extractAttributeValue<int>(xmlData, "blue", backgroundPos);
-        backgroundBits = extractAttributeValue<int>(xmlData, "bits", backgroundPos);
+        int bgBits;
+        parseColorXML(xmlData, backgroundPos, backgroundRed, backgroundGreen, backgroundBlue, bgBits);
     }
 
     // Find the position of "geometry" tag
     size_t geometryPos = xmlData.find("<geometry");
     if (geometryPos != std::string::npos) {
-        geometryX = extractAttributeValue<float>(xmlData, "x", geometryPos);
-        geometryY = extractAttributeValue<float>(xmlData, "y", geometryPos);
-        geometryCX = extractAttributeValue<float>(xmlData, "cx", geometryPos);
-        geometryCY = extractAttributeValue<float>(xmlData, "cy", geometryPos);
+        parseGeometryXML(xmlData, geometryPos, geometryX, geometryY, geometryCX, geometryCY);
     }
 }
 
@@ -347,7 +417,7 @@ void set_pending() {
 
 void wait_pending() {
     std::unique_lock lk(m);
-    cv.wait(lk, []{ return !pending.load(std::memory_order_acquire); });
+    cv.wait(lk, [] { return !pending.load(std::memory_order_acquire); });
 }
 
 void StartResolve(float window, const std::string &ip, bool isHdr) {
@@ -391,13 +461,8 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
 
     std::cerr << "Connection established!" << std::endl;
 
-    format = DXGI_FORMAT_R10G10B10A2_UNORM;
-    hdr = isHdr;
-    changedMode = true;
     the_input = new std::vector<DrawCommand>;
     set_pending();
-
-    std::cerr << "Switching to 10 bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
 
     while (true) {
         wait_pending(); // wait for pending stuff
@@ -422,35 +487,40 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
         }
 
         // Variables to store parsed values
-        int colorRed, colorGreen, colorBlue, colorBits;
-        int backgroundRed, backgroundGreen, backgroundBlue, backgroundBits;
+        float colorRed, colorGreen, colorBlue;
+        float backgroundRed, backgroundGreen, backgroundBlue;
         float geometryX, geometryY, geometryCX, geometryCY;
 
-        // Call the parsing function
-        parseCalibrationXML(xmlData, colorRed, colorGreen, colorBlue, colorBits,
-                            backgroundRed, backgroundGreen, backgroundBlue, backgroundBits,
-                            geometryX, geometryY, geometryCX, geometryCY);
+        int targetBits;
 
-        if (backgroundBits != 10 || colorBits != 10) {
-            std::cerr << "Unsupported bit depth, expected 10";
+        if (xmlData.find("<rectangle") != std::string::npos) {
+            parseLightspaceCalibrationXML(xmlData, colorRed, colorGreen, colorBlue,
+                                          backgroundRed, backgroundGreen, backgroundBlue,
+                                          geometryX, geometryY, geometryCX, geometryCY, targetBits);
+        } else {
+            parseCalibrationXML(xmlData, colorRed, colorGreen, colorBlue,
+                                backgroundRed, backgroundGreen, backgroundBlue,
+                                geometryX, geometryY, geometryCX, geometryCY, targetBits);
+        }
+
+        if (targetBits != 8 && targetBits != 10) {
+            std::cerr << "Unsupported bit depth, expected 8 or 10";
             continue;
         }
 
-        auto maxV = (float) ((1 << 10) - 1);
+        bool isFullField = geometryX == 0 && geometryY == 0 && geometryCX == 1 && geometryCY == 1;
 
         auto commands = new std::vector<DrawCommand>;
-        {
-            int bgColor[3] = {backgroundRed, backgroundGreen, backgroundBlue};
+        if (!isFullField && !(backgroundRed == 0 && backgroundGreen == 0 && backgroundBlue == 0)) {
+            float bgColor[3] = {backgroundRed, backgroundGreen, backgroundBlue};
             DrawCommand background = {};
-            populate_window_draw(background, 100, bgColor, maxV);
+            populate_window_draw(background, 100, bgColor);
             commands->push_back(background);
         }
         {
-            int color[3] = {colorRed, colorGreen, colorBlue};
+            float color[3] = {colorRed, colorGreen, colorBlue};
             DrawCommand draw = {};
-            populate_window_draw(draw, window, color, maxV);
-
-            bool isFullField = geometryX == 0 && geometryY == 0 && geometryCX == 1 && geometryCY == 1;
+            populate_window_draw(draw, window, color);
 
             if (window == 0 || isFullField) {
                 // use supplied coordinates instead of window %
@@ -463,9 +533,28 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
             commands->push_back(draw);
         }
 
-        // std::cerr << xmlData << std::endl;
+        if (debug.load(std::memory_order_acquire)) {
+            std::cerr << xmlData << std::endl;
+        }
 
         the_input = commands;
+
+        bool bitMatches = targetBits == 10 && format == DXGI_FORMAT_R10G10B10A2_UNORM ||
+                          targetBits == 8 && format == DXGI_FORMAT_B8G8R8A8_UNORM;
+
+        static bool firstPattern = true;
+        if (firstPattern || !bitMatches) {
+            if (targetBits == 8) {
+                format = DXGI_FORMAT_B8G8R8A8_UNORM;
+            } else {
+                format = DXGI_FORMAT_R10G10B10A2_UNORM;
+            }
+            hdr = isHdr;
+            changedMode = true;
+
+            std::cerr << "Switching to " << targetBits << " bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
+            firstPattern = false;
+        }
         set_pending();
     }
 
@@ -641,7 +730,9 @@ void StartPGen(bool isHdr, int passive[3]) {
 
             std::string command(buffer);
 
-            // std::cerr << command << std::endl;
+            if (debug.load(std::memory_order_acquire)) {
+                std::cerr << command << std::endl;
+            }
 
             const char *response = nullptr;
 
@@ -828,6 +919,14 @@ void InputReader(char *cmds[], int num_cmds) {
                 flicker = tmp;
                 print_ok = true;
                 set_pending();
+            }
+        } else if (command_type == "debug") {
+            unsigned int tmp;
+            if (!(ss >> tmp) || tmp != 0 && tmp != 1) {
+                std::cout << "error: must specify 0 or 1" << std::endl;
+            } else {
+                debug.store(tmp, std::memory_order_release);
+                print_ok = true;
             }
         } else if (command_type == "maxcll") {
             int tmp;
