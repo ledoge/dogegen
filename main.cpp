@@ -420,7 +420,7 @@ void wait_pending() {
     cv.wait(lk, [] { return !pending.load(std::memory_order_acquire); });
 }
 
-void StartResolve(float window, const std::string &ip, bool isHdr) {
+void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr) {
     // Initialize Winsock
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
@@ -439,7 +439,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
     // Set up the server address information
     sockaddr_in serverAddress = {};
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(20002);
+    serverAddress.sin_port = htons(port);
 
     // Convert IP address from string to binary form
     if (inet_pton(AF_INET, ip.c_str(), &serverAddress.sin_addr) <= 0) {
@@ -449,7 +449,7 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
         return;
     }
 
-    std::cerr << "Attempting to connect to " << ip << std::endl;
+    std::cerr << "Attempting to connect to " << ip << ":" << port << std::endl;
 
     // Connect to the server
     if (connect(clientSocket, reinterpret_cast<sockaddr *>(&serverAddress), sizeof(serverAddress)) == SOCKET_ERROR) {
@@ -553,6 +553,9 @@ void StartResolve(float window, const std::string &ip, bool isHdr) {
             changedMode = true;
 
             std::cerr << "Switching to " << targetBits << " bit " << (isHdr ? "HDR" : "SDR") << " output" << std::endl;
+            if (firstPattern && window != 0) {
+                std::cerr << "Using " << window << "% window instead of provided coordinates" << std::endl;
+            }
             firstPattern = false;
         }
         set_pending();
@@ -855,17 +858,47 @@ void InputReader(char *cmds[], int num_cmds) {
                 continue;
             }
 
-            std::string ip;
+            std::string ip = "127.0.0.1";
+            uint16_t port = 20002;
 
-            if (!(ss >> ip)) {
-                std::cout << "error: no IP address specified" << std::endl;
-                continue;
+            std::string arg1;
+            bool arg1IsWindow = false;
+            if (ss >> arg1) {
+                if (arg1.rfind("localhost", 0) == 0 || std::count(arg1.begin(), arg1.end(), '.') > 1) {
+                    // looks like an IP address
+                    size_t colonPos = arg1.find(':');
+
+                    if (colonPos == std::string::npos) {
+                        ip = arg1;
+                    } else {
+                        ip = arg1.substr(0, colonPos);
+
+                        std::istringstream ss(arg1.substr(colonPos + 1));
+                        if (!(ss >> port)) {
+                            std::cout << "error: invalid port" << std::endl;
+                            continue;
+                        }
+                    }
+                } else {
+                    arg1IsWindow = true;
+                }
+            }
+
+            if (ip == "localhost") {
+                ip = "127.0.0.1";
             }
 
             float window = 0;
 
             float tmp;
-            if (ss >> tmp) {
+            if (arg1IsWindow || ss >> tmp) {
+                if (arg1IsWindow) {
+                    std::istringstream ss(arg1);
+                    if (!(ss >> tmp)) {
+                        std::cout << "error: argument must be IP or window size" << std::endl;
+                        continue;
+                    }
+                }
                 if (tmp > 0 && tmp <= 100) {
                     window = tmp;
                 } else {
@@ -874,7 +907,7 @@ void InputReader(char *cmds[], int num_cmds) {
                 }
             }
 
-            StartResolve(window, ip, isHdr);
+            StartResolve(window, ip, port, isHdr);
         } else if (command_type.rfind("pgen", 0) == 0) { // starts with resolve
             bool isHdr;
 
