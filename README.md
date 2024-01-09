@@ -3,7 +3,7 @@
 
 # About
 
-This is a minimal command-line test pattern generator for Windows 10+ with support for 8 and 10 bit color, both in SDR (BT.709) and HDR (PQ BT.2100). For use with profiling/calibration software, the "Resolve" XML protocol over TCP as implemented by DisplayCAL and Calman, and a small subset of the PGenerator protocol as implemented by HCFR are supported.
+This is a minimal command-line test pattern generator for Windows 10/11 with support for 8 and 10 bit color, both in SDR (BT.709) and HDR (PQ BT.2100). It can be used with DisplayCAL, Calman and ColourSpace via the "Resolve" XML protocol, and with HCFR by acting as a PGenerator.
 
 # Usage
 
@@ -16,16 +16,22 @@ For automation or creating shortcuts, commands can be supplied as command line a
 In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". When prompted to connect the TPG to DisplayCAL, enter the following command:
 
 ```
-resolve 127.0.0.1
+resolve
 ```
 
 This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, as this is not checked. Also, if you want to render patterns in SDR, you can specify `resolve_sdr` instead.
 
-If DisplayCAL is not running on the same machine, you can enter the corresponding IP instead. Additionally, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
+If DisplayCAL is not running on the same machine, you can enter the corresponding IP as an argument. Additionally, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
 
 ```
-resolve 127.0.0.1 10
+resolve 192.168.1.10 10
 ```
+
+Either an IP address or a window size can be specified as a single argument, but if both are used, the IP address must come first. Optionally, the IP address can be followed by `:` and a port number to connect to (default is 20002).
+
+## Use with Calman and ColourSpace
+
+Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve` command as with DisplayCAL is then used to establish the connection.
 
 ## Use with HCFR
 
