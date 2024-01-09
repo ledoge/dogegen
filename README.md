@@ -31,7 +31,7 @@ Either an IP address or a window size can be specified as a single argument, but
 
 ## Use with Calman and ColourSpace
 
-Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve` command as with DisplayCAL is then used to establish the connection.
+Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve` command as with DisplayCAL is then used to establish the connection. 8 and 10 bit patterns are supported.
 
 ## Use with HCFR
 
