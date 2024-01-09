@@ -21,10 +21,10 @@ resolve
 
 This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, as this is not checked. Also, if you want to render patterns in SDR, you can specify `resolve_sdr` instead.
 
-If DisplayCAL is not running on the same machine, you can enter the corresponding IP as an argument. Additionally, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
+If DisplayCAL is running on a different machine, you can enter its IP as an argument. Additionally, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
 
 ```
-resolve 192.168.1.10 10
+resolve 192.168.1.23 10
 ```
 
 Either an IP address or a window size can be specified as a single argument, but if both are used, the IP address must come first. Optionally, the IP address can be followed by `:` and a port number to connect to (default is 20002).
