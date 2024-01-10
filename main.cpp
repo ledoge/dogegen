@@ -986,6 +986,7 @@ void InputReader(char *cmds[], int num_cmds) {
                     the_input = tmp;
                     set_pending();
                 } else {
+                    delete tmp;
                     std::cout << "error: invalid draw command(s)" << std::endl;
                 }
         } else {
