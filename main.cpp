@@ -1036,9 +1036,13 @@ int main(int argc, char *argv[]) {
             return GetLastError();
         }
 
-        DWORD windowStyle = (WS_OVERLAPPEDWINDOW | WS_VISIBLE) & ~WS_MAXIMIZEBOX;
+        DWORD windowStyle = (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX;
 
-        RECT initialRect = {0, 0, 1280, 720};
+        int clientWidth = 1280;
+        int clientHeight = 720;
+
+        RECT initialRect = {0, 0, clientWidth, clientHeight};;
+
         AdjustWindowRect(&initialRect, windowStyle, FALSE);
         LONG initialWidth = initialRect.right - initialRect.left;
         LONG initialHeight = initialRect.bottom - initialRect.top;
@@ -1055,6 +1059,36 @@ int main(int argc, char *argv[]) {
             MessageBoxA(0, "CreateWindowEx failed", "Fatal Error", MB_OK);
             return GetLastError();
         }
+
+        HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO monitorInfo;
+        monitorInfo.cbSize = sizeof(MONITORINFO);
+        if (GetMonitorInfo(hMonitor, &monitorInfo)) {
+            RECT work = monitorInfo.rcWork;
+
+            int monitorWidth = work.right - work.left;
+            int monitorHeight = work.bottom - work.top;
+
+            // scale client area to get equivalent size as on 4k display
+            clientWidth = clientWidth * monitorWidth / 3840;
+            clientHeight = clientHeight * monitorHeight / 2160;
+
+            // Calculate the centered position
+            int centerX = (work.left + work.right - clientWidth) / 2;
+            int centerY = (work.top + work.bottom - clientHeight) / 2;
+
+            RECT center = {centerX, centerY, centerX + clientWidth, centerY + clientHeight};
+
+            AdjustWindowRect(&center, windowStyle, FALSE);
+
+            // Update window position
+            SetWindowPos(hwnd, 0, center.left, center.top, center.right - center.left, center.bottom - center.top,
+                         SWP_NOZORDER);
+        }
+
+        // Show the window
+        ShowWindow(hwnd, SW_SHOWNORMAL);
+        UpdateWindow(hwnd);
     }
 
     // Create D3D11 Device and Context
