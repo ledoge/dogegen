@@ -152,14 +152,16 @@ std::atomic<bool> pending;
 
 std::atomic<bool> debug;
 
-void populate_window_draw(DrawCommand &command, float windowSize, int color[3], float maxV) {
+void set_coords_from_window(DrawCommand &command, float windowSize) {
     float num = sqrt(windowSize / 100);
 
     command.x1 = -1 * num;
     command.y1 = 1 * num;
     command.x2 = 1 * num;
     command.y2 = -1 * num;
+}
 
+void set_colors_from_rgb(DrawCommand &command, int color[3], float maxV) {
     for (int i = 0; i < 3; i++) {
         command.color1[i] = color[i] / maxV;
         command.color2[i] = color[i] / maxV;
@@ -169,14 +171,7 @@ void populate_window_draw(DrawCommand &command, float windowSize, int color[3], 
     command.quant = 0;
 }
 
-void populate_window_draw(DrawCommand &command, float windowSize, float color[3]) {
-    float num = sqrt(windowSize / 100);
-
-    command.x1 = -1 * num;
-    command.y1 = 1 * num;
-    command.x2 = 1 * num;
-    command.y2 = -1 * num;
-
+void set_colors_from_rgb(DrawCommand &command, float color[3]) {
     for (int i = 0; i < 3; i++) {
         command.color1[i] = color[i];
         command.color2[i] = color[i];
@@ -184,6 +179,16 @@ void populate_window_draw(DrawCommand &command, float windowSize, float color[3]
         command.color4[i] = color[i];
     }
     command.quant = 0;
+}
+
+void populate_window_draw(DrawCommand &command, float windowSize, int color[3], float maxV) {
+    set_coords_from_window(command, windowSize);
+    set_colors_from_rgb(command, color, maxV);
+}
+
+void populate_window_draw(DrawCommand &command, float windowSize, float color[3]) {
+    set_coords_from_window(command, windowSize);
+    set_colors_from_rgb(command, color);
 }
 
 bool parse_window_command(std::stringstream &ss, DrawCommand &command, float maxV) {
@@ -520,14 +525,18 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
         {
             float color[3] = {colorRed, colorGreen, colorBlue};
             DrawCommand draw = {};
-            populate_window_draw(draw, window, color);
+            set_colors_from_rgb(draw, color);
 
             if (window == 0 || isFullField) {
-                // use supplied coordinates instead of window %
+                // use supplied coordinates
                 draw.x1 = -1 + 2 * geometryX;
                 draw.y1 = 1 - 2 * geometryY;
                 draw.x2 = draw.x1 + 2 * geometryCX;
                 draw.y2 = draw.y1 - 2 * geometryCY;
+            }
+            else {
+                // window override
+                set_coords_from_window(draw, window);
             }
 
             commands->push_back(draw);
@@ -770,7 +779,7 @@ void StartPGen(bool isHdr, int passive[3]) {
 
                     int color[3] = {r, g, b};
                     DrawCommand draw = {};
-                    populate_window_draw(draw, 0, color, maxV);
+                    set_colors_from_rgb(draw, color, maxV);
 
                     // calculate coordinates based on supplied width and height
                     draw.x1 = -1.0f * width / screenWidth;
