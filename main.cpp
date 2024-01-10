@@ -338,7 +338,9 @@ void parseColorXML(const std::string &xmlData, size_t start, float &colorRed, fl
                    int &bits) {
     size_t endPos = xmlData.find('>', start);
     // if this is not colex: use subsequent colex, if it exists
-    if (xmlData.rfind("<colex", 0) == std::string::npos && endPos == xmlData.find("><colex", start)) {
+    const char *colex = "<colex";
+    if (xmlData.substr(start, std::strlen(colex)) != colex &&
+        xmlData.substr(endPos + 1, std::strlen(colex)) == colex) {
         start = endPos + 1;
         endPos = xmlData.find('>', start);
     }
