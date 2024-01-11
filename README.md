@@ -13,7 +13,7 @@ For automation or creating shortcuts, commands can be supplied as command line a
 
 ## Use with DisplayCAL
 
-In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". When prompted to connect the TPG to DisplayCAL, enter the following command:
+In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". Additionally, I would recommend enabling the "Black background" option (shown in the "Measurement area" window), as patterns will be shown with a gray background othrewise. When prompted to connect the TPG to DisplayCAL, enter the following command:
 
 ```
 resolve
@@ -21,13 +21,13 @@ resolve
 
 This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, as this is not checked. Also, if you want to render patterns in SDR, you can specify `resolve_sdr` instead.
 
-If DisplayCAL is running on a different machine, you can enter its IP as an argument. Additionally, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
+If DisplayCAL is running on a different machine, you can enter its IP as an argument. Also, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
 
 ```
 resolve 192.168.1.23 10
 ```
 
-Either an IP address or a window size can be specified as a single argument, but if both are used, the IP address must come first. Optionally, the IP address can be followed by `:` and a port number to connect to (default is 20002).
+You can omit either one of these arguments, i.e. only specify the IP address or the window size as a single argument. Optionally, the IP address can be followed by `:` and a port number to connect to (default is 20002).
 
 ## Use with Calman and ColourSpace
 
@@ -100,6 +100,16 @@ flicker 1
 ```
 
 This alternates between the current pattern and black on every frame. The parameter specifies the number of black frames between every flashing of the pattern, with `0` disabling it again.
+
+## Debugging
+
+You can enable the `debug` option to print the commands received over the network:
+
+```
+debug 1
+```
+
+If you are running into an issue where a pattern is not rendering as expected, please include the corresponding command(s) when filing an issue.
 
 # Thanks
 
