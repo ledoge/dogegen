@@ -101,7 +101,7 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                     }
                 } else {
                     SetWindowLong(hwnd, GWL_STYLE,
-                                  dwStyle | WS_OVERLAPPEDWINDOW);
+                                  dwStyle | WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX);
                     SetWindowPlacement(hwnd, &g_wpPrev);
                     SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
                                  SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
@@ -1047,7 +1047,7 @@ int main(int argc, char *argv[]) {
             return GetLastError();
         }
 
-        DWORD windowStyle = (WS_OVERLAPPEDWINDOW) & ~WS_MAXIMIZEBOX;
+        DWORD windowStyle = WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX;
 
         int clientWidth = 1280;
         int clientHeight = 720;
