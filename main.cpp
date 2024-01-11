@@ -1037,10 +1037,10 @@ int main(int argc, char *argv[]) {
         winClass.lpfnWndProc = &WndProc;
         winClass.hInstance = hInstance;
         winClass.hIcon = LoadIconW(0, IDI_APPLICATION);
-        winClass.hCursor = LoadCursorW(0, IDC_ARROW);
+        // winClass.hCursor = LoadCursorW(0, IDC_ARROW);
+        winClass.hCursor = NULL;
         winClass.lpszClassName = L"MyWindowClass";
         winClass.hIconSm = LoadIconW(0, IDI_APPLICATION);
-        winClass.hCursor = NULL;
 
         if (!RegisterClassExW(&winClass)) {
             MessageBoxA(0, "RegisterClassEx failed", "Fatal Error", MB_OK);
