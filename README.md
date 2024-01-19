@@ -115,4 +115,4 @@ If you are running into an issue where a pattern is not rendering as expected, p
 
 Special thanks to kevinmoran for their public domain D3D11 samples, which this is based on: https://github.com/kevinmoran/BeginnerDirect3D11
 
-Credit to Light Illusion for developing the "Resolve" XML protocol
+Credit to Light Illusion for developing the XML Protocol as used by Resolve for TPG operation
