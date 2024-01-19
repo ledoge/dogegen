@@ -480,13 +480,14 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
         if (bytesReceived != sizeof(dataLen)) {
             std::cerr << "Failed to receive data length" << std::endl;
             goto cleanup;
-        } else if (dataLen <= 0) {
-            std::cerr << "Server indicated connection close" << std::endl;
-            goto cleanup;
         }
 
         // Convert the data length from network byte order to host byte order
         dataLen = ntohl(dataLen);
+        if (dataLen <= 0) {
+            std::cerr << "Server indicated connection close" << std::endl;
+            goto cleanup;
+        }
 
         // Receive the XML data
         std::string xmlData(dataLen, '\0');
