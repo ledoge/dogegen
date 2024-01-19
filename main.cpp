@@ -491,7 +491,7 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
 
         // Receive the XML data
         std::string xmlData(dataLen, '\0');
-        bytesReceived = recv(clientSocket, &xmlData[0], dataLen, 0);
+        bytesReceived = recv(clientSocket, &xmlData[0], dataLen, MSG_WAITALL);
         if (bytesReceived != dataLen) {
             std::cerr << "Failed to receive XML data" << std::endl;
             goto cleanup;
