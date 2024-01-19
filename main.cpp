@@ -475,10 +475,14 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
         wait_pending(); // wait for pending stuff
 
         // Receive the data length
-        uint32_t dataLen;
+        int32_t dataLen;
         int bytesReceived = recv(clientSocket, reinterpret_cast<char *>(&dataLen), sizeof(dataLen), 0);
         if (bytesReceived != sizeof(dataLen)) {
             std::cerr << "Failed to receive data length" << std::endl;
+            goto cleanup;
+        }
+        else if (dataLen <= 0) {
+            std::cerr << "Server indicated connection close" << std::endl;
             goto cleanup;
         }
 
