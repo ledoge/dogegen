@@ -13,13 +13,13 @@ For automation or creating shortcuts, commands can be supplied as command line a
 
 ## Use with DisplayCAL
 
-In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". Additionally, I would recommend enabling the "Black background" option (shown in the "Measurement area" window), as patterns will be shown with a gray background othrewise. When prompted to connect the TPG to DisplayCAL, enter the following command:
+In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". Additionally, I would recommend enabling the "Black background" option (shown in the "Measurement area" window), as patterns will be shown with a gray background otherwise. When prompted to connect the TPG to DisplayCAL, enter the following command:
 
 ```
 resolve
 ```
 
-This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, as this is not checked. Also, if you want to render patterns in SDR, you can specify `resolve_sdr` instead.
+This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, as this is not checked. If you want to render patterns in SDR, you can specify `resolve_sdr` instead.
 
 If DisplayCAL is running on a different machine, you can enter its IP as an argument. Also, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
 
@@ -31,7 +31,7 @@ You can omit either one of these arguments, i.e. only specify the IP address or 
 
 ## Use with Calman and ColourSpace
 
-Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve` command as with DisplayCAL is then used to establish the connection. 8 and 10 bit patterns are supported.
+Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve` or `resolve_sdr` command as with DisplayCAL is then used to establish the connection. With ColourSpace, 8 and 10 bit patterns can be used (higher bit depths are not supported by Windows), while Calman only supports 10 bit patterns.
 
 ## Use with HCFR
 
@@ -114,3 +114,5 @@ If you are running into an issue where a pattern is not rendering as expected, p
 # Thanks
 
 Special thanks to kevinmoran for their public domain D3D11 samples, which this is based on: https://github.com/kevinmoran/BeginnerDirect3D11
+
+Credit to Light Illusion for developing the "Resolve" XML protocol
