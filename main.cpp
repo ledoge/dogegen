@@ -476,7 +476,7 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
 
         // Receive the data length
         int32_t dataLen;
-        int bytesReceived = recv(clientSocket, reinterpret_cast<char *>(&dataLen), sizeof(dataLen), 0);
+        int bytesReceived = recv(clientSocket, reinterpret_cast<char *>(&dataLen), sizeof(dataLen), MSG_WAITALL);
         if (bytesReceived != sizeof(dataLen)) {
             std::cerr << "Failed to receive data length" << std::endl;
             goto cleanup;
