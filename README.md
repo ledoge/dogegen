@@ -9,14 +9,14 @@ This is a minimal command-line test pattern generator for Windows 10/11 with sup
 
 Running the exe will give you two windows: A console window for entering commands (see below) and a D3D11 window for rendering patterns, which can be freely resized and switched into borderless fullscreen with Alt+Enter.
 
-For automation or creating shortcuts, commands can be supplied as command line arguments. Example: `dogegen.exe "maxcll 1000" "resolve 127.0.0.1"`
+For automation or creating shortcuts, commands can be supplied as command line arguments. Example: `dogegen.exe "maxcll 1000" "resolve_hdr 127.0.0.1"`
 
 ## Use with DisplayCAL
 
 In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". Additionally, I would recommend enabling the "Black background" option (shown in the "Measurement area" window), as patterns will be shown with a gray background otherwise. When prompted to connect the TPG to DisplayCAL, enter the following command:
 
 ```
-resolve
+resolve_hdr
 ```
 
 This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, as this is not checked. If you want to render patterns in SDR, you can specify `resolve_sdr` instead.
@@ -24,24 +24,24 @@ This will make it act as an HDR TPG. Ensure that you have Windows HDR enabled, a
 If DisplayCAL is running on a different machine, you can enter its IP as an argument. Also, a window size can be specified to override the coordinates specified by DisplayCAL. This is useful if you want to perform all measurements with a centered 10% window as commonly done by other software:
 
 ```
-resolve 192.168.1.23 10
+resolve_hdr 192.168.1.23 10
 ```
 
 You can omit either one of these arguments, i.e. only specify the IP address or the window size as a single argument. Optionally, the IP address can be followed by `:` and a port number to connect to (default is 20002).
 
 ## Use with Calman and ColourSpace
 
-Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve` or `resolve_sdr` command as with DisplayCAL is then used to establish the connection. With ColourSpace, 8 and 10 bit patterns can be used (higher bit depths are not supported by Windows), while Calman only supports 10 bit patterns.
+Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve_hdr` or `resolve_sdr` command as with DisplayCAL is then used to establish the connection. With ColourSpace, 8 and 10 bit patterns can be used (higher bit depths are not supported by Windows), while Calman's interface only supports 10 bit patterns.
 
 ## Use with HCFR
 
 Enter this command:
 
 ```
-pgen
+pgen_hdr
 ```
 
-To make it act as a PGenerator with HDR output. Like with `resolve`, you must ensure that Windows HDR is enabled or alternatively run `pgen_sdr` for SDR pattern rendering.
+To make it act as a PGenerator with HDR output. Like with `resolve_hdr`, you must ensure that Windows HDR is enabled or alternatively run `pgen_sdr` for SDR pattern rendering.
 
 As this is an extremely limited implementation, specific settings are required in HCFR for it to work: In the Generator configuration menu, select "Raspberry Pi" and make sure that the "rPi user pattern" and "Display triplets" options are disabled. The output range under GDI options can be freely chosen depending on your needs, but for PC use you likely want 0 - 255.
 
@@ -50,7 +50,7 @@ As soon as you render a pattern in HCFR, it will try to discover a PGenerator in
 Optionally, an 8 bit RGB triplet can be specified, which will be displayed as a full field "passive" pattern whenever HCFR is not displaying any patches. Example:
 
 ```
-pgen 100 100 100
+pgen_hdr 100 100 100
 ```
 
 ## Setting HDR metadata
