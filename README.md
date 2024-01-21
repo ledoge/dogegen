@@ -13,7 +13,7 @@ For automation or creating shortcuts, commands can be supplied as command line a
 
 ## Use with DisplayCAL
 
-In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". Additionally, I would recommend enabling the "Black background" option (shown in the "Measurement area" window), as patterns will be shown with a gray background otherwise. When prompted to connect the TPG to DisplayCAL, enter the following command:
+In DisplayCAL, select "Resolve" under the Display dropdown and disable "Override minimum display update delay". Additionally, I would recommend enabling the "Black background" option (shown in the "Measurement area" window), as patterns will be rendered with a gray background otherwise. When prompted to connect the TPG to DisplayCAL, enter the following command:
 
 ```
 resolve_hdr
