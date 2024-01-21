@@ -864,12 +864,12 @@ void InputReader(char *cmds[], int num_cmds) {
         } else if (command_type.rfind("resolve", 0) == 0) { // starts with resolve
             bool isHdr;
 
-            if (command_type == "resolve" || command_type == "resolve_hdr") {
+            if (command_type == "resolve_hdr") {
                 isHdr = true;
             } else if (command_type == "resolve_sdr") {
                 isHdr = false;
             } else {
-                std::cout << "error: unrecognized resolve command" << std::endl;
+                std::cout << "error: must specify resolve_sdr or resolve_hdr" << std::endl;
                 continue;
             }
 
@@ -923,8 +923,17 @@ void InputReader(char *cmds[], int num_cmds) {
             }
 
             StartResolve(window, ip, port, isHdr);
-        } else if (command_type.rfind("pgen", 0) == 0) { // starts with resolve
+        } else if (command_type.rfind("pgen", 0) == 0) { // starts with pgen
             bool isHdr;
+
+            if (command_type == "pgen_hdr") {
+                isHdr = true;
+            } else if (command_type == "pgen_sdr") {
+                isHdr = false;
+            } else {
+                std::cout << "error: must specify pgen_sdr or pgen_hdr" << std::endl;
+                continue;
+            }
 
             int *p = nullptr;
             if (!ss.eof()) {
@@ -948,14 +957,6 @@ void InputReader(char *cmds[], int num_cmds) {
                 }
             }
 
-            if (command_type == "pgen" || command_type == "pgen_hdr") {
-                isHdr = true;
-            } else if (command_type == "pgen_sdr") {
-                isHdr = false;
-            } else {
-                std::cout << "error: unrecognized pgen command" << std::endl;
-                continue;
-            }
             StartPGen(isHdr, p);
             delete[] p;
         } else if (command_type == "flicker") {
@@ -1026,7 +1027,10 @@ int main(int argc, char *argv[]) {
 
     std::locale::global(std::locale("C"));
 
+    // disable OS scaling
     SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    // prevent display from turning off
+    SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
 
     std::thread t1(InputReader, &argv[1], argc - 1);
 
