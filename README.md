@@ -111,6 +111,15 @@ debug 1
 
 If you are running into an issue where a pattern is not rendering as expected, please include the corresponding command(s) when filing an issue.
 
+# Output accuracy
+
+To be able to achieve accurate "bit-perfect" output, you should ensure these requirements are met:
+* Set the GPU to full range RGB output, with the same bit depth as the patterns
+* Make sure GPU dithering is disabled. This can be done using programs such as [novideo_srgb](https://github.com/ledoge/novideo_srgb) (for NVIDIA GPUs only) or [ColorControl](https://github.com/Maassoft/ColorControl)
+* Have the TPG window fullscreened. Not necessarily required, depending on the configuration, but should increase the chances of the TPG window bypassing the compositor and being presented directly to the display. 10 bit and/or HDR values cannot be rendered accurately if this does not happen.
+
+Even when these requirements are met, the output might not be accurate. I don't have a signal analyzer/capture card myself to check the accuracy on my system, but if you do, please share any results.
+
 # Thanks
 
 Special thanks to kevinmoran for their public domain D3D11 samples, which this is based on: https://github.com/kevinmoran/BeginnerDirect3D11
