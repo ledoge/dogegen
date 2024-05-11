@@ -31,7 +31,7 @@ You can omit either one of these arguments, i.e. only specify the IP address or 
 
 ## Use with Calman and ColourSpace
 
-Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve_hdr` or `resolve_sdr` command as with DisplayCAL is then used to establish the connection. With ColourSpace, 8 and 10 bit patterns can be used (higher bit depths are not supported by Windows), while Calman's interface only supports 10 bit patterns.
+Please see the manuals of the respective software on how to prepare them for use with Resolve as TPG. The same `resolve_hdr` or `resolve_sdr` command as with DisplayCAL is then used to establish the connection. With ColourSpace, 8 and 10 bit patterns can be used (higher bit depths are not supported by Windows), while Calman will always send 10 bit values (despite its general lack of 10 bit color support).
 
 ## Use with HCFR
 
