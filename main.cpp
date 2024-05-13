@@ -418,6 +418,77 @@ void parseCalibrationXML(const std::string &xmlData, float &colorRed, float &col
     }
 }
 
+void drawPluge(bool hdr, std::vector<DrawCommand> &commands) {
+    const float maxV = 1023;
+
+    auto idx = [](char x) { return x - 'a'; };
+
+    // 4K UHDTV values from BT.814-4
+    uint16_t higher = hdr ? 399 : 940;
+    uint16_t black = 64;
+    uint16_t lighter = 80;
+    uint16_t darker = 48;
+
+    uint16_t horz[] = {0, 624, 1199, 1776, 2063, 2640, 3215, 3839};
+    uint16_t vert[] = {0, 648, 690, 935, 936, 1223, 1224, 1469, 1511, 2159};
+
+    auto drawCoords = [&](uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t code) {
+        const float width = 3840;
+        const float height = 2160;
+
+        auto cmd = DrawCommand{};
+
+        float level = code / maxV;
+
+        for (int i = 0; i < 3; i++) {
+            cmd.color1[i] = level;
+            cmd.color2[i] = level;
+            cmd.color3[i] = level;
+            cmd.color4[i] = level;
+        }
+
+        cmd.x1 = -1 + 2 * x1 / width;
+        cmd.y1 = 1 - 2 * y1 / height;
+        cmd.x2 = -1 + 2 * (x2 + 1) / width;
+        cmd.y2 = 1 - 2 * (y2 + 1) / height;
+
+        commands.push_back(cmd);
+    };
+
+    auto draw = [&](char horz1, char vert1, char horz2, char vert2, uint16_t code) {
+        auto x1 = horz[idx(horz1)];
+        auto y1 = vert[idx(vert1)];
+        auto x2 = horz[idx(horz2)];
+        auto y2 = vert[idx(vert2)];
+
+        drawCoords(x1, y1, x2, y2, code);
+    };
+
+    // black background
+    draw('a', 'a', 'h', 'j', black);
+
+    // higher square in the middle
+    draw('d', 'e', 'e', 'f', higher);
+
+    // lighter rectangle on the right
+    draw('f', 'b', 'g', 'd', lighter);
+
+    // darker rectangle on the right
+    draw('f', 'g', 'g', 'i', darker);
+
+    // 20 lighter/darker bars on the left
+    for (int i = 0; i < 20; i++) {
+        uint16_t x1 = horz[idx('b')];
+        uint16_t y1 = vert[idx('c')] + 2 * 20 * i;
+        uint16_t x2 = horz[idx('c')];
+        uint16_t y2 = y1 + 19;
+
+        uint16_t color = i < 10 ? lighter : darker;
+
+        drawCoords(x1, y1, x2, y2, color);
+    }
+}
+
 void set_pending() {
     pending.store(true, std::memory_order_release);
 }
@@ -984,7 +1055,7 @@ void InputReader(char *cmds[], int num_cmds) {
                 std::cout << "error: must specify value between -1 and 10000" << std::endl;
             } else {
                 if (tmp != -1) {
-                    metadata = new DXGI_HDR_METADATA_HDR10 { };
+                    metadata = new DXGI_HDR_METADATA_HDR10{};
                     metadata->MaxMasteringLuminance = \
                     metadata->MaxContentLightLevel = \
                     metadata->MaxFrameAverageLightLevel = \
@@ -994,7 +1065,15 @@ void InputReader(char *cmds[], int num_cmds) {
                 print_ok = true;
                 set_pending();
             }
-
+        } else if (command_type == "pluge") {
+            if (format != DXGI_FORMAT_R10G10B10A2_UNORM) {
+                std::cout << "error: pluge requires a 10 bit mode" << std::endl;
+                continue;
+            }
+            auto tmp = new std::vector<DrawCommand>;
+            drawPluge(hdr, *tmp);
+            the_input = tmp;
+            set_pending();
         } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
                 auto tmp = new std::vector<DrawCommand>;
                 if (parse_draw_string(input, *tmp)) {
@@ -1328,8 +1407,14 @@ int main(int argc, char *argv[]) {
 
         bool doStuff = false;
 
-        if (pending.load(std::memory_order_acquire) && m.try_lock()) {
-            doStuff = true;
+        if (pending.load(std::memory_order_acquire)) {
+            // loop to maybe work around spurious mutex failures
+            for (int i = 0; i < 10; i++) {
+                if (m.try_lock()) {
+                    doStuff = true;
+                    break;
+                }
+            }
         }
 
         if (global_windowDidResize || doStuff && changedMode) {
