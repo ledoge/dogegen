@@ -75,7 +75,9 @@ mode 10_hdr
 
 The supported values are `8` (default), `8_hdr`, `10`, and `10_hdr`.
 
-Patterns are specified via a `;`-separated list of `window` or `draw` commands. Example (assuming a 10 bit mode):
+When you are in a 10 bit mode, you can use the `pluge` command to draw a 4K UHDTV PLUGE pattern as specified in BT.814-4.
+
+Custom patterns are specified via a `;`-separated list of `window` or `draw` commands. Example (assuming a 10 bit mode):
 
 ```
 window 100 512 512 512; window 10 1023 1023 1023
