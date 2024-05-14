@@ -1065,13 +1065,23 @@ void InputReader(char *cmds[], int num_cmds) {
                 print_ok = true;
                 set_pending();
             }
-        } else if (command_type == "pluge") {
+        } else if (command_type.rfind("pluge", 0) == 0) {
+            bool useHdr;
+            if (command_type == "pluge") {
+                useHdr = hdr;
+            } else if (command_type == "pluge_hdr") {
+                useHdr = true;
+            } else {
+                std::cout << "error: must specify pluge or pluge_hdr" << std::endl;
+                continue;
+            }
+
             if (format != DXGI_FORMAT_R10G10B10A2_UNORM) {
                 std::cout << "error: pluge requires a 10 bit mode" << std::endl;
                 continue;
             }
             auto tmp = new std::vector<DrawCommand>;
-            drawPluge(hdr, *tmp);
+            drawPluge(useHdr, *tmp);
             the_input = tmp;
             set_pending();
         } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
