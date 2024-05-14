@@ -1149,7 +1149,7 @@ int main(int argc, char *argv[]) {
         int clientWidth = 1280;
         int clientHeight = 720;
 
-        RECT initialRect = {0, 0, clientWidth, clientHeight};;
+        RECT initialRect = {0, 0, clientWidth, clientHeight};
 
         AdjustWindowRect(&initialRect, windowStyle, FALSE);
         LONG initialWidth = initialRect.right - initialRect.left;
