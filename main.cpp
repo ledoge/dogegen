@@ -130,13 +130,6 @@ struct DrawCommand {
 };
 
 
-struct TmpColors {
-    int color1[3];
-    int color2[3];
-    int color3[3];
-    int color4[3];
-};
-
 std::vector<DrawCommand> *the_input;
 bool changedMode;
 DXGI_FORMAT format;
@@ -239,28 +232,34 @@ bool parse_draw_command(const std::string &command_str, DrawCommand &command, fl
         return false;
     }
 
-    TmpColors tmp;
+    std::vector<int> values;
+    values.reserve(13);
 
-    if (!(ss >> tmp.color1[0] >> tmp.color1[1] >> tmp.color1[2] >>
-             tmp.color2[0] >> tmp.color2[1] >> tmp.color2[2] >>
-             tmp.color3[0] >> tmp.color3[1] >> tmp.color3[2] >>
-             tmp.color4[0] >> tmp.color4[1] >> tmp.color4[2])) {
+    {
+        int tmp;
+        while (values.size() < 13 && ss >> tmp) {
+            values.push_back(tmp);
+        }
+    }
+
+    if (values.size() != 3 && values.size() != 13) {
         return false;
+    }
+
+    if (values.size() == 3) {
+        set_colors_from_rgb(command, &values[0], maxV);
+        command.quant = 0;
+        return true;
     }
 
     for (int i = 0; i < 3; i++) {
-        command.color1[i] = tmp.color1[i] / maxV;
-        command.color2[i] = tmp.color2[i] / maxV;
-        command.color3[i] = tmp.color3[i] / maxV;
-        command.color4[i] = tmp.color4[i] / maxV;
+        command.color1[i] = values[0*3+i] / maxV;
+        command.color2[i] = values[1*3+i] / maxV;
+        command.color3[i] = values[2*3+i] / maxV;
+        command.color4[i] = values[3*3+i] / maxV;
     }
 
-    int quant;
-    if (!(ss >> quant)) {
-        return false;
-    }
-
-    command.quant = quant / maxV;
+    command.quant = values[12] / maxV;
 
     return true;
 }
