@@ -488,6 +488,170 @@ void drawPluge(bool hdr, std::vector<DrawCommand> &commands) {
     }
 }
 
+void drawBars(bool limited, std::vector<DrawCommand> &commands) {
+    const float maxV = 1023;
+
+    auto idx = [](char x) { return x - 'a'; };
+
+    uint16_t bars[] = {1920, 1080, 240, 206, 204, 136, 70, 68, 238, 438, 282};
+    auto bar = [&](char x) { return isupper(x) ? (uint16_t) (bars[idx(tolower(x))] / 2) : bars[idx(x)]; };
+
+    auto drawCoords = [&](uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t rgb[3]) {
+        const float width = bar('a');
+        const float height = bar('b');
+
+        auto cmd = DrawCommand{};
+
+        for (int i = 0; i < 3; i++) {
+            float level = rgb[i] / maxV;
+            cmd.color1[i] = level;
+            cmd.color2[i] = level;
+            cmd.color3[i] = level;
+            cmd.color4[i] = level;
+        }
+
+        cmd.x1 = -1 + 2 * x1 / width;
+        cmd.y1 = 1 - 2 * y1 / height;
+        cmd.x2 = -1 + 2 * x2 / width;
+        cmd.y2 = 1 - 2 * y2 / height;
+
+        commands.push_back(cmd);
+    };
+
+    int y = 0;
+
+    {
+        auto draw = [&](uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t rgb[3]) {
+            return drawCoords(x, y, x + w, y + h, rgb);
+        };
+        uint16_t colors[2][15][3] = {
+                {{940,  940,  940},  {940,  940,  64}, {64, 940,  940},  {64, 940,  64}, {940,  64, 940},  {940,  64, 64}, {64, 64, 940},  {572, 572, 572}, {572, 572, 64}, {64, 572, 572}, {64, 572, 64}, {572, 64, 572}, {572, 64, 64}, {64, 64, 572}, {414, 414, 414}},
+                {{1023, 1023, 1023}, {1023, 1023, 0},  {0,  1023, 1023}, {0,  1023, 0},  {1023, 0,  1023}, {1023, 0,  0},  {0,  0,  1023}, {593, 593, 593}, {593, 593, 0},  {0,  593, 593}, {0,  593, 0},  {593, 0,  593}, {593, 0,  0},  {0,  0,  593}, {409, 409, 409}}
+        };
+        auto color = [&](uint16_t idx) { return colors[limited ? 0 : 1][idx]; };
+        char widths[7] = {'d', 'd', 'd', 'e', 'd', 'd', 'd'};
+        uint16_t x = bar('c');
+
+
+        uint16_t h1 = bar('b') / 12;
+        uint16_t h2 = bar('b') / 2;
+        int numBars = sizeof(widths);
+        int i;
+        for (i = 0; i < numBars; i++) {
+            uint16_t width = bar(widths[i]);
+            draw(x, 0, width, h1, color(i));
+            draw(x, h1, width, h2, color(i + numBars));
+            x += width;
+        }
+
+        draw(0, 0, bar('c'), h1 + h2, color(i + numBars));
+        draw(x, 0, bar('c'), h1 + h2, color(i + numBars));
+
+        y += h1 + h2;
+    }
+
+    {
+        uint16_t x = 0;
+        uint16_t h = bar('b') / 12;
+
+        auto draw = [&](uint16_t w, uint16_t level) {
+            uint16_t rgb[3] = {level, level, level};
+            drawCoords(x, y, x + w, y + h, rgb);
+            x += w;
+        };
+        uint16_t levels[2][15] = {
+                {572, 4, 64, 152, 239, 327, 414, 502, 590, 677, 765, 852, 940,  1019, 572},
+                {593, 0, 0,  102, 205, 307, 409, 512, 614, 716, 818, 921, 1023, 1023, 593}
+        };
+        auto level = [&](uint16_t idx) { return levels[limited ? 0 : 1][idx]; };
+        char widths[15] = {'c', 'd', 'D', 'D', 'D', 'D', 'E', 'E', 'D', 'D', 'D', 'D', 'D', 'D', 'c'};
+
+        int numBars = sizeof(widths);
+        int i;
+        for (i = 0; i < numBars; i++) {
+            uint16_t width = bar(widths[i]);
+            draw(width, level(i));
+        }
+
+        y += h;
+    }
+
+    {
+        uint16_t x = 0;
+        uint16_t h = bar('b') / 12;
+
+        auto draw = [&](uint16_t w, uint16_t level) {
+            uint16_t rgb[3] = {level, level, level};
+            drawCoords(x, y, x + w, y + h, rgb);
+            x += w;
+        };
+        uint16_t levels[2][15] = {
+                {64, 4, 1019},
+                {0,  0, 1023}
+        };
+
+        auto level = [&](uint16_t idx) { return levels[limited ? 0 : 1][idx]; };
+        uint16_t widths[3] = {bar('c'), 559, 107};
+        uint16_t gradientWidth = limited ? 1014 : 1022;
+
+        int numBars = sizeof(widths) / sizeof(widths[0]);
+        for (int i = 0; i < numBars; i++) {
+            uint16_t width = widths[i];
+            draw(width, level(i));
+            if (i == 1) {
+                draw(gradientWidth, level(2) - 1);
+                auto cmd = &commands.back();
+                for (int j = 0; j < 3; j++) {
+                    cmd->color1[j] = cmd->color3[j] = (level(1) + 1) / maxV;
+                }
+                cmd->quant = 1 / maxV;
+            }
+        }
+
+        y += h;
+    }
+
+    {
+        uint16_t x = 0;
+        uint16_t h = bar('b') / 4;
+
+        auto draw = [&](uint16_t w, uint16_t rgb[3]) {
+            drawCoords(x, y, x + w, y + h, rgb);
+            x += w;
+        };
+
+        auto drawGray = [&](uint16_t w, uint16_t level) {
+            uint16_t rgb[3] = {level, level, level};
+            draw(w, rgb);
+        };
+
+        uint16_t colors[2][6][3] = {
+                {{568, 571, 381}, {484, 566, 571}, {474, 564, 368}, {536, 361, 564}, {530, 350, 256}, {317, 236, 562}},
+                {{589, 592, 370}, {491, 586, 592}, {478, 584, 355}, {551, 347, 584}, {544, 334, 225}, {296, 201, 582}}
+        };
+        uint16_t grays[2][9] = {
+                {64, 48, 64, 80, 64, 99, 64, 572, 64},
+                {0,  0,  0,  20, 0,  41, 0,  593, 0}
+        };
+
+        auto color = [&](uint16_t idx) { return colors[limited ? 0 : 1][idx]; };
+        auto gray = [&](uint16_t idx) { return grays[limited ? 0 : 1][idx]; };
+        char widths[9] = {'f', 'g', 'h', 'g', 'h', 'g', 'i', 'j', 'k'};
+
+        for (int i = 0; i < 3; i++) {
+            draw(bar('c') / 3, color(i));
+        }
+
+        for (int i = 0; i < 9; i++) {
+            drawGray(bar(widths[i]), gray(i));
+        }
+
+        for (int i = 0; i < 3; i++) {
+            draw(bar('c') / 3, color(3 + i));
+        }
+    }
+}
+
 void set_pending() {
     pending.store(true, std::memory_order_release);
 }
@@ -1090,6 +1254,27 @@ void InputReader(char *cmds[], int num_cmds) {
             auto tmp = new std::vector<DrawCommand>;
             drawPluge(useHdr, *tmp);
             the_input = tmp;
+            print_ok = true;
+            set_pending();
+        } else if (command_type.rfind("bars", 0) == 0) {
+            bool limited;
+            if (command_type == "bars_full") {
+                limited = false;
+            } else if (command_type == "bars_limited") {
+                limited = true;
+            } else {
+                std::cout << "error: must specify bars_full or bars_limited" << std::endl;
+                continue;
+            }
+
+            if (format != DXGI_FORMAT_R10G10B10A2_UNORM) {
+                std::cout << "error: bars requires a 10 bit mode" << std::endl;
+                continue;
+            }
+            auto tmp = new std::vector<DrawCommand>;
+            drawBars(limited, *tmp);
+            the_input = tmp;
+            print_ok = true;
             set_pending();
         } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
             auto tmp = new std::vector<DrawCommand>;
