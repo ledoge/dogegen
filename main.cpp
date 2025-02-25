@@ -591,7 +591,7 @@ void drawBars(bool limited, std::vector<DrawCommand> &commands) {
         };
 
         auto level = [&](uint16_t idx) { return levels[limited ? 0 : 1][idx]; };
-        uint16_t widths[3] = {bar('c'), 559, 107};
+        uint16_t widths[3] = {bar('c'), (uint16_t) (limited ? 559 : 551), 107};
         uint16_t gradientWidth = limited ? 1014 : 1022;
 
         int numBars = sizeof(widths) / sizeof(widths[0]);
