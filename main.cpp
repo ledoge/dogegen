@@ -1048,22 +1048,33 @@ void InputReader(char *cmds[], int num_cmds) {
                 print_ok = true;
             }
         } else if (command_type == "maxcll") {
-            int tmp;
-
-            if (!(ss >> tmp) || tmp < -1 || tmp > 10000) {
+            int maxCLL;
+            if (!(ss >> maxCLL) || maxCLL < -1 || maxCLL > 10000) {
                 std::cout << "error: must specify value between -1 and 10000" << std::endl;
-            } else {
-                if (tmp != -1) {
-                    metadata = new DXGI_HDR_METADATA_HDR10{};
-                    metadata->MaxMasteringLuminance = \
-                    metadata->MaxContentLightLevel = \
-                    metadata->MaxFrameAverageLightLevel = \
-                    tmp;
-                }
-                setMetadata = true;
-                print_ok = true;
-                set_pending();
+                continue;
             }
+            if (maxCLL != -1) {
+                unsigned maxFALL, maxDML;
+                if (!(ss >> maxFALL) && ss.eof() && maxFALL != UINT_MAX) {
+                    maxFALL = maxDML = maxCLL;
+                } else {
+                    if (maxFALL > 10000) {
+                        std::cout << "error: must specify value between 0 and 10000" << std::endl;
+                        continue;
+                    }
+                    if (!(ss >> maxDML) || maxDML > 10000) {
+                        std::cout << "error: must specify value between 0 and 10000" << std::endl;
+                        continue;
+                    }
+                }
+                metadata = new DXGI_HDR_METADATA_HDR10{};
+                metadata->MaxMasteringLuminance = maxDML;
+                metadata->MaxContentLightLevel = maxCLL;
+                metadata->MaxFrameAverageLightLevel = maxFALL;
+            }
+            setMetadata = true;
+            print_ok = true;
+            set_pending();
         } else if (command_type.rfind("pluge", 0) == 0) {
             bool useHdr;
             if (command_type == "pluge") {
