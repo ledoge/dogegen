@@ -85,13 +85,21 @@ window 100 512 512 512; window 10 1023 1023 1023
 
 This draws a full field background with code value `(512, 512, 512)`, with a 10% peak white window on top.
 
-The `draw` command requires more arguments and can be used to generate rectangles with arbitrary coordinates and gradients. Example (assuming an 8 bit mode):
+The `draw` command requires more arguments and can be used to generate rectangles with arbitrary coordinates and colors. Example (assuming an 8 bit mode):
+
+```
+draw -1 1 0 0 255 255 255
+```
+
+This draws a white rectangle in the top left corner of the window. The rectangle's corner coordinates, given as the first 4 arguments, are Direct3D Normalized Device Coordinates (i.e. top left of the window is `-1 1`, center is `0 0`, bottom right is `1 -1`).
+
+Patterns with gradients can be generated using the extended version of the command, which takes a color for each corner and a quantization parameter to control the step size:
 
 ```
 draw -1 1 1 -1 0 0 0 256 256 256 0 0 0 256 256 256 1
 ```
 
-This draws a full field 0-255 grayscale gradient with even spacing.
+This draws a full field 0-255 grayscale gradient with even spacing. Note that the high level is specified as 256 because the quantization is implemented by rounding down to the nearest multiple of the quantization parameter. The coordinates extend half a pixel beyond the sampled pixel centers in each direction, so the rightmost pixels will assume a value slightly below 256 before rounding down.
 
 Specifying a new pattern overrides the old one, and entering nothing (i.e. just pressing Enter) results in the pattern being cleared.
 
