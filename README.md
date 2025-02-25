@@ -65,6 +65,12 @@ The number is in nits and must be between 0 and 10000. Note that this uses the D
 
 A value of `-1` unsets the metadata, though I don't know what the effect of that is supposed to be.
 
+For more granular control over the metadata, you can specify separate values for MaxCLL, MaxFALL and MaxDML:
+
+```
+maxcll 1000 200 4000
+```
+
 ## Manual pattern generation
 
 First, switch the TPG into the desired bit depth + HDR mode, e.g.
