@@ -200,7 +200,7 @@ bool parse_window_command(std::stringstream &ss, DrawCommand &command, float max
         return false;
     }
 
-    for (int x : color) {
+    for (int x: color) {
         if (x < 0 || x > maxV) {
             return false;
         }
@@ -253,10 +253,10 @@ bool parse_draw_command(const std::string &command_str, DrawCommand &command, fl
     }
 
     for (int i = 0; i < 3; i++) {
-        command.color1[i] = values[0*3+i] / maxV;
-        command.color2[i] = values[1*3+i] / maxV;
-        command.color3[i] = values[2*3+i] / maxV;
-        command.color4[i] = values[3*3+i] / maxV;
+        command.color1[i] = values[0 * 3 + i] / maxV;
+        command.color2[i] = values[1 * 3 + i] / maxV;
+        command.color3[i] = values[2 * 3 + i] / maxV;
+        command.color4[i] = values[3 * 3 + i] / maxV;
     }
 
     command.quant = values[12] / maxV;
@@ -609,8 +609,7 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
                 draw.y1 = 1 - 2 * geometryY;
                 draw.x2 = draw.x1 + 2 * geometryCX;
                 draw.y2 = draw.y1 - 2 * geometryCY;
-            }
-            else {
+            } else {
                 // window override
                 set_coords_from_window(draw, window);
             }
@@ -915,8 +914,7 @@ void InputReader(char *cmds[], int num_cmds) {
         if (cmds_processed < num_cmds) {
             input = std::string(cmds[cmds_processed++]);
             std::cout << input << std::endl;
-        }
-        else {
+        } else {
             getline(std::cin, input);
         }
         std::stringstream ss(input);
@@ -1011,8 +1009,7 @@ void InputReader(char *cmds[], int num_cmds) {
                 if (!(ss >> p[0] >> p[1] >> p[2])) {
                     std::cout << "error: must specify r g b" << std::endl;
                     continue;
-                }
-                else {
+                } else {
                     bool invalid = false;
                     for (int i = 0; i < 3; i++) {
                         if (p[i] < 0 || p[i] > 255) {
@@ -1095,15 +1092,15 @@ void InputReader(char *cmds[], int num_cmds) {
             the_input = tmp;
             set_pending();
         } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
-                auto tmp = new std::vector<DrawCommand>;
-                if (parse_draw_string(input, *tmp)) {
-                    print_ok = true;
-                    the_input = tmp;
-                    set_pending();
-                } else {
-                    delete tmp;
-                    std::cout << "error: invalid draw command(s)" << std::endl;
-                }
+            auto tmp = new std::vector<DrawCommand>;
+            if (parse_draw_string(input, *tmp)) {
+                print_ok = true;
+                the_input = tmp;
+                set_pending();
+            } else {
+                delete tmp;
+                std::cout << "error: invalid draw command(s)" << std::endl;
+            }
         } else {
             std::cout << "error: unrecognized command" << std::endl;
         }
@@ -1469,8 +1466,7 @@ int main(int argc, char *argv[]) {
                 d3d11SwapChain->SetHDRMetaData(DXGI_HDR_METADATA_TYPE_HDR10, sizeof(*metadata), metadata);
                 delete metadata;
                 metadata = nullptr;
-            }
-            else {
+            } else {
                 d3d11SwapChain->SetHDRMetaData(DXGI_HDR_METADATA_TYPE_NONE, 0, nullptr);
             }
             setMetadata = false;
