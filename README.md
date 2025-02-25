@@ -75,7 +75,7 @@ mode 10_hdr
 
 The supported values are `8` (default), `8_hdr`, `10`, and `10_hdr`.
 
-When you are in a 10 bit mode, you can use the `pluge` command to draw a 4K UHDTV PLUGE pattern as specified in BT.814-4.
+When you are in a 10 bit mode, you can use the `pluge` command to draw the (limited range) 4K UHDTV/HDR-TV PLUGE pattern specified in [BT.814-4](https://www.itu.int/rec/R-REC-BT.814-4-201807-I/en). `pluge_hdr` can be used to draw the HDR variant without being in an HDR mode.
 
 Custom patterns are specified via a `;`-separated list of `window` or `draw` commands. Example (assuming a 10 bit mode):
 
