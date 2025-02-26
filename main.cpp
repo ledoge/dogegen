@@ -2,10 +2,16 @@
 #define NOMINMAX
 #define UNICODE
 
+#include <WinSDKVer.h>
+
+#define _WIN32_WINNT _WIN32_WINNT_WIN10
+
+#include <sdkddkver.h>
 #include <windows.h>
 #include <d3d11_4.h>
 #include <d3dcompiler.h>
 #include <ShellScalingApi.h>
+#include <sstream>
 #include <iostream>
 #include <thread>
 #include <atomic>
@@ -13,11 +19,16 @@
 #include <cassert>
 #include <mutex>
 #include <condition_variable>
+#include <algorithm>
+#include <cmath>
+#include <cstring>
+#include <winuser.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 
 #define _STRINGIFY(x) #x
 #define STRINGIFY(x) _STRINGIFY(x)
+#define ARRAY_NUM(arr) (sizeof(arr) / sizeof(arr[0]))
 
 char shaders[] = STRINGIFY(
     struct VS_Input
@@ -146,7 +157,7 @@ std::atomic<bool> pending;
 std::atomic<bool> debug;
 
 void set_coords_from_window(DrawCommand &command, float windowSize) {
-    float num = sqrt(windowSize / 100);
+    float num = std::sqrt(windowSize / 100);
 
     command.x1 = -1 * num;
     command.y1 = 1 * num;
@@ -535,7 +546,7 @@ void drawBars(bool limited, std::vector<DrawCommand> &commands) {
 
         uint16_t h1 = bar('b') / 12;
         uint16_t h2 = bar('b') / 2;
-        int numBars = sizeof(widths);
+        int numBars = ARRAY_NUM(widths);
         int i;
         for (i = 0; i < numBars; i++) {
             uint16_t width = bar(widths[i]);
@@ -566,7 +577,7 @@ void drawBars(bool limited, std::vector<DrawCommand> &commands) {
         auto level = [&](uint16_t idx) { return levels[limited ? 0 : 1][idx]; };
         char widths[15] = {'c', 'd', 'D', 'D', 'D', 'D', 'E', 'E', 'D', 'D', 'D', 'D', 'D', 'D', 'c'};
 
-        int numBars = sizeof(widths);
+        int numBars = ARRAY_NUM(widths);
         int i;
         for (i = 0; i < numBars; i++) {
             uint16_t width = bar(widths[i]);
@@ -594,7 +605,7 @@ void drawBars(bool limited, std::vector<DrawCommand> &commands) {
         uint16_t widths[3] = {bar('c'), (uint16_t) (limited ? 559 : 551), 107};
         uint16_t gradientWidth = limited ? 1014 : 1022;
 
-        int numBars = sizeof(widths) / sizeof(widths[0]);
+        int numBars = ARRAY_NUM(widths);
         for (int i = 0; i < numBars; i++) {
             uint16_t width = widths[i];
             draw(width, level(i));
@@ -638,16 +649,18 @@ void drawBars(bool limited, std::vector<DrawCommand> &commands) {
         auto gray = [&](uint16_t idx) { return grays[limited ? 0 : 1][idx]; };
         char widths[9] = {'f', 'g', 'h', 'g', 'h', 'g', 'i', 'j', 'k'};
 
-        for (int i = 0; i < 3; i++) {
+        const int numColors = ARRAY_NUM(colors[0]);
+        for (int i = 0; i < numColors / 2; i++) {
             draw(bar('c') / 3, color(i));
         }
 
-        for (int i = 0; i < 9; i++) {
+        const int numGrays = ARRAY_NUM(grays[0]);
+        for (int i = 0; i < numGrays; i++) {
             drawGray(bar(widths[i]), gray(i));
         }
 
-        for (int i = 0; i < 3; i++) {
-            draw(bar('c') / 3, color(3 + i));
+        for (int i = numColors / 2; i < numColors; i++) {
+            draw(bar('c') / 3, color(i));
         }
     }
 }
@@ -1309,7 +1322,7 @@ int main(int argc, char *argv[]) {
     std::locale::global(std::locale("C"));
 
     // disable OS scaling
-    SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    SetProcessDpiAwareness((PROCESS_DPI_AWARENESS) -4); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
     // prevent display from turning off
     SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
 
