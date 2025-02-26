@@ -599,7 +599,7 @@ void drawBars(bool limited, std::vector<DrawCommand> &commands) {
             uint16_t width = widths[i];
             draw(width, level(i));
             if (i == 1) {
-                draw(gradientWidth, level(2) - 1);
+                draw(gradientWidth, level(2));
                 auto cmd = &commands.back();
                 for (int j = 0; j < 3; j++) {
                     cmd->color1[j] = cmd->color3[j] = (level(1) + 1) / maxV;
