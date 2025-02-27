@@ -10,6 +10,7 @@
 #include <windows.h>
 #include <d3d11_4.h>
 #include <d3dcompiler.h>
+#include <dwmapi.h>
 #include <ShellScalingApi.h>
 #include <sstream>
 #include <iostream>
@@ -1399,6 +1400,10 @@ int main(int argc, char *argv[]) {
             SetWindowPos(hwnd, 0, center.left, center.top, center.right - center.left, center.bottom - center.top,
                          SWP_NOZORDER);
         }
+
+        const int corner_preference = 1; // DWMWCP_DONOTROUND
+        const DWORD DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+        DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, &corner_preference, sizeof(corner_preference));
 
         // Show the window
         ShowWindow(hwnd, SW_SHOWNORMAL);
