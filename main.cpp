@@ -67,7 +67,8 @@ char shaders[] = STRINGIFY(
 
 static bool global_windowDidResize = false;
 
-WINDOWPLACEMENT g_wpPrev = {sizeof(WINDOWPLACEMENT)};
+LONG g_wndStyle = WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX;
+RECT g_wndRect;
 
 LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
     LRESULT result = 0;
@@ -97,27 +98,24 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
 
         case WM_SYSKEYDOWN: {
             if ((wparam == VK_RETURN) && (lparam & (1 << 29))) { // Alt key is pressed
-                DWORD dwStyle = GetWindowLong(hwnd, GWL_STYLE);
-                if (dwStyle & WS_OVERLAPPEDWINDOW) {
+                if (GetWindowLong(hwnd, GWL_STYLE) & WS_OVERLAPPEDWINDOW) {
                     MONITORINFO mi = {sizeof(mi)};
-                    if (GetWindowPlacement(hwnd, &g_wpPrev) &&
-                        GetMonitorInfo(MonitorFromWindow(hwnd,
-                                                         MONITOR_DEFAULTTOPRIMARY), &mi)) {
-                        SetWindowLong(hwnd, GWL_STYLE,
-                                      dwStyle & ~WS_OVERLAPPEDWINDOW);
+                    if (GetWindowRect(hwnd, &g_wndRect) &&
+                        GetMonitorInfo(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi)) {
+                        SetWindowLong(hwnd, GWL_STYLE, g_wndStyle & ~WS_OVERLAPPEDWINDOW);
                         SetWindowPos(hwnd, HWND_TOP,
                                      mi.rcMonitor.left, mi.rcMonitor.top,
                                      mi.rcMonitor.right - mi.rcMonitor.left,
                                      mi.rcMonitor.bottom - mi.rcMonitor.top,
                                      SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+                        ShowWindow(hwnd, SW_MAXIMIZE);
                     }
                 } else {
-                    SetWindowLong(hwnd, GWL_STYLE,
-                                  dwStyle | WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX);
-                    SetWindowPlacement(hwnd, &g_wpPrev);
-                    SetWindowPos(hwnd, NULL, 0, 0, 0, 0,
-                                 SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER |
-                                 SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+                    SetWindowLong(hwnd, GWL_STYLE, g_wndStyle);
+                    SetWindowPos(
+                            hwnd, HWND_NOTOPMOST, g_wndRect.left, g_wndRect.top, g_wndRect.right - g_wndRect.left,
+                            g_wndRect.bottom - g_wndRect.top, SWP_FRAMECHANGED | SWP_NOACTIVATE);
+                    ShowWindow(hwnd, SW_NORMAL);
                 }
             }
             break;
@@ -1350,20 +1348,18 @@ int main(int argc, char *argv[]) {
             return GetLastError();
         }
 
-        DWORD windowStyle = WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX;
-
         int clientWidth = 1920;
         int clientHeight = 1080;
 
         RECT initialRect = {0, 0, clientWidth, clientHeight};
 
-        AdjustWindowRect(&initialRect, windowStyle, FALSE);
+        AdjustWindowRect(&initialRect, g_wndStyle, FALSE);
         LONG initialWidth = initialRect.right - initialRect.left;
         LONG initialHeight = initialRect.bottom - initialRect.top;
 
         hwnd = CreateWindowW(winClass.lpszClassName,
                              L"dogegen",
-                             windowStyle,
+                             g_wndStyle,
                              CW_USEDEFAULT, CW_USEDEFAULT,
                              initialWidth,
                              initialHeight,
@@ -1394,7 +1390,7 @@ int main(int argc, char *argv[]) {
 
             RECT center = {centerX, centerY, centerX + clientWidth, centerY + clientHeight};
 
-            AdjustWindowRect(&center, windowStyle, FALSE);
+            AdjustWindowRect(&center, g_wndStyle, FALSE);
 
             // Update window position
             SetWindowPos(hwnd, 0, center.left, center.top, center.right - center.left, center.bottom - center.top,
