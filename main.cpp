@@ -1322,7 +1322,7 @@ int main(int argc, char *argv[]) {
     std::locale::global(std::locale("C"));
 
     // disable OS scaling
-    SetProcessDpiAwareness((PROCESS_DPI_AWARENESS) -4); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     // prevent display from turning off
     SetThreadExecutionState(ES_CONTINUOUS | ES_DISPLAY_REQUIRED);
 
@@ -1351,8 +1351,8 @@ int main(int argc, char *argv[]) {
 
         DWORD windowStyle = WS_OVERLAPPEDWINDOW & ~WS_MAXIMIZEBOX;
 
-        int clientWidth = 1280;
-        int clientHeight = 720;
+        int clientWidth = 1920;
+        int clientHeight = 1080;
 
         RECT initialRect = {0, 0, clientWidth, clientHeight};
 
@@ -1382,9 +1382,10 @@ int main(int argc, char *argv[]) {
             int monitorWidth = work.right - work.left;
             int monitorHeight = work.bottom - work.top;
 
-            // scale client area to get equivalent size as on 4k display
-            clientWidth = clientWidth * monitorWidth / 3840;
-            clientHeight = clientHeight * monitorHeight / 2160;
+            // scale client area to get equivalent area as on 4k display, retaining aspect ratio
+            double scale = sqrt((double) monitorWidth * monitorHeight / (3840 * 2160));
+            clientWidth = (int) round(clientWidth * scale);
+            clientHeight = (int) round(clientHeight * scale);
 
             // Calculate the centered position
             int centerX = (work.left + work.right - clientWidth) / 2;
