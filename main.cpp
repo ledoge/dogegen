@@ -1351,8 +1351,8 @@ int main(int argc, char *argv[]) {
             return GetLastError();
         }
 
-        int clientWidth = 1920;
-        int clientHeight = 1080;
+        int clientWidth = 1280;
+        int clientHeight = 720;
 
         RECT initialRect = {0, 0, clientWidth, clientHeight};
 
