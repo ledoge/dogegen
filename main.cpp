@@ -1271,20 +1271,21 @@ void InputReader(char *cmds[], int num_cmds) {
             print_ok = true;
             set_pending();
         } else if (command_type.rfind("bars", 0) == 0) {
-            bool limited;
-            if (command_type == "bars_full") {
-                limited = false;
-            } else if (command_type == "bars_limited") {
-                limited = true;
-            } else {
-                std::cout << "error: must specify bars_full or bars_limited" << std::endl;
-                continue;
-            }
-
             if (format != DXGI_FORMAT_R10G10B10A2_UNORM) {
                 std::cout << "error: bars requires a 10 bit mode" << std::endl;
                 continue;
             }
+
+            bool limited;
+            if (command_type == "bars_limited") {
+                limited = true;
+            } else if (command_type == "bars_full") {
+                limited = false;
+            } else {
+                std::cout << "error: must specify bars_limited or bars_full" << std::endl;
+                continue;
+            }
+
             auto tmp = new std::vector<DrawCommand>;
             drawBars(limited, *tmp);
             the_input = tmp;
