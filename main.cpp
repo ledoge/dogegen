@@ -427,8 +427,8 @@ void parseCalibrationXML(const std::string &xmlData, float &colorRed, float &col
     }
 }
 
-void drawPluge(bool hdr, std::vector<DrawCommand> &commands) {
-    const float maxV = 1023;
+void drawPluge(bool hdr, bool tenbit, std::vector<DrawCommand> &commands) {
+    const float maxV = tenbit ? 1023 : 255;
 
     auto idx = [](char x) { return x - 'a'; };
 
@@ -447,7 +447,7 @@ void drawPluge(bool hdr, std::vector<DrawCommand> &commands) {
 
         auto cmd = DrawCommand{};
 
-        float level = code / maxV;
+        float level = (code / (tenbit ? 1 : 4)) / maxV;
 
         for (int i = 0; i < 3; i++) {
             cmd.color1[i] = level;
@@ -1259,12 +1259,14 @@ void InputReader(char *cmds[], int num_cmds) {
                 continue;
             }
 
-            if (format != DXGI_FORMAT_R10G10B10A2_UNORM) {
-                std::cout << "error: pluge requires a 10 bit mode" << std::endl;
+            const int bits = format == DXGI_FORMAT_R10G10B10A2_UNORM ? 10 : 8;
+
+            if (bits == 8 && useHdr) {
+                std::cout << "error: hdr pluge requires a 10 bit mode" << std::endl;
                 continue;
             }
             auto tmp = new std::vector<DrawCommand>;
-            drawPluge(useHdr, *tmp);
+            drawPluge(useHdr, bits == 10, *tmp);
             the_input = tmp;
             print_ok = true;
             set_pending();
