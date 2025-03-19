@@ -84,7 +84,7 @@ The supported values are `8` (default), `8_hdr`, `10`, and `10_hdr`.
 There are two predefined patterns:
 
   * `pluge` draws the (limited range) 4K UHDTV/HDR-TV PLUGE pattern specified in [BT.814-4](https://www.itu.int/rec/R-REC-BT.814-4-201807-I/en). `pluge_hdr` can be used to draw the HDR variant without being in an HDR mode.
-  * `bars` draws the 10 bit HDR-TV PQ color bars specified in [BT.2111-2](https://www.itu.int/dms_pubrec/itu-r/rec/bt/R-REC-BT.2111-2-202012-I!!PDF-E.pdf). `_limited` or `_full` must be added to the command to specify the signal range.
+  * `bars` draws the 10 bit HDR-TV PQ color bars specified in [BT.2111-2](https://www.itu.int/rec/R-REC-BT.2111-2-202012-I/en). `_limited` or `_full` must be added to the command to specify the signal range.
 
 Custom patterns are specified via a `;`-separated list of `window` or `draw` commands. Example (assuming a 10 bit mode):
 
