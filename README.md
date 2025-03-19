@@ -135,10 +135,11 @@ If you are running into an issue where a pattern is not rendering as expected, p
 To be able to achieve accurate "bit-perfect" output, you should ensure these requirements are met:
 * Set the GPU to full range RGB output, with the same bit depth as the patterns.
 * Ensure that no VCGT calibration is loaded and that all GPU color settings are at their defaults. For NVIDIA GPUs, this can be done by enabling the "Override to reference mode" setting.
-* Make sure GPU dithering is disabled. This can be done using programs such as [novideo_srgb](https://github.com/ledoge/novideo_srgb) (for NVIDIA GPUs only) or [ColorControl](https://github.com/Maassoft/ColorControl).
-* Have the TPG window fullscreened. Not necessarily required, depending on the configuration, but should increase the chances of the TPG window bypassing the compositor and being presented directly to the display. 10 bit and/or HDR values cannot be rendered accurately if this does not happen.
+* Make sure GPU dithering is disabled. This can be done using programs such as [novideo_srgb](https://github.com/ledoge/novideo_srgb) (for NVIDIA GPUs only) or [ColorControl](https://github.com/Maassoft/ColorControl). Note: On NVIDIA GPUs, 8 and 10 bit full range output does not use dithering by default, except for the case of 8 bit with Windows HDR enabled.
+* Have the TPG window fullscreened. May not be required, depending on the GPU and display configuration, but should guarantee that the TPG window bypasses the compositor and gets presented directly to the display. 10 bit and/or HDR values cannot be rendered accurately if this does not happen.
+* For HDR output, use Windows 11? There is a bug on Windows 10, which I believe only affects NVIDIA GPUs, where Windows HDR will sometimes take on a slight green tint. This can be triggered by changes in the display configuration or waking the PC from sleep, but can seemingly also happen at random. I have been unable to reproduce this issue on Windows 11, so as far as I can tell this bug does not exist there.
 
-Even when these requirements are met, the output might not be accurate. I don't have a signal analyzer/capture card myself to check the accuracy on my system, but if you do, please share any results.
+Even when these requirements are met, the output might not be perfectly accurate. I don't have a signal analyzer/capture card myself to check the accuracy on my system, but if you do, please share any results.
 
 # Thanks
 
