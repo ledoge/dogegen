@@ -2,7 +2,7 @@
 #define NOMINMAX
 #define UNICODE
 
-#include <WinSDKVer.h>
+#include <winsdkver.h>
 
 #define _WIN32_WINNT _WIN32_WINNT_WIN10
 
@@ -11,7 +11,6 @@
 #include <d3d11_4.h>
 #include <d3dcompiler.h>
 #include <dwmapi.h>
-#include <ShellScalingApi.h>
 #include <sstream>
 #include <iostream>
 #include <thread>
