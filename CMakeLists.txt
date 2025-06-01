@@ -4,4 +4,4 @@ project(dogegen)
 set(CMAKE_CXX_STANDARD 17)
 
 add_executable(dogegen main.cpp)
-target_link_libraries(dogegen d3d11 d3dcompiler Dwmapi Shcore ws2_32)
+target_link_libraries(dogegen d3d11 d3dcompiler dwmapi ws2_32)
