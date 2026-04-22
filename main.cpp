@@ -1468,6 +1468,7 @@ int main(int argc, char *argv[]) {
             HRESULT hResult = d3d11Device->QueryInterface(__uuidof(IDXGIDevice1), (void **) &dxgiDevice);
             assert(SUCCEEDED(hResult));
 
+            // already set by default when using waitable swapchain
             //dxgiDevice->SetMaximumFrameLatency(1);
 
             IDXGIAdapter *dxgiAdapter;
