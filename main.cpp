@@ -1205,10 +1205,10 @@ void InputReader(char *cmds[], int num_cmds) {
             StartPGen(isHdr, p);
             delete[] p;
         } else if (command_type == "flicker") {
-            unsigned int tmp;
+            short tmp;
 
-            if (!(ss >> tmp)) {
-                std::cout << "error: must specify number of black frames";
+            if (!(ss >> tmp) || tmp < 0) {
+                std::cout << "error: must specify number of black frames" << std::endl;
             } else {
                 flicker = tmp;
                 print_ok = true;
