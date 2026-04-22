@@ -116,7 +116,10 @@ LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam) {
                             g_wndRect.bottom - g_wndRect.top, SWP_FRAMECHANGED | SWP_NOACTIVATE);
                     ShowWindow(hwnd, SW_NORMAL);
                 }
+                break;
             }
+
+            result = DefWindowProcW(hwnd, msg, wparam, lparam);
             break;
         }
 
