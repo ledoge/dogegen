@@ -719,6 +719,8 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
     the_input = new std::vector<DrawCommand>;
     set_pending();
 
+    bool firstPattern = true;
+
     while (true) {
         wait_pending(); // wait for pending stuff
 
@@ -804,7 +806,6 @@ void StartResolve(float window, const std::string &ip, uint16_t port, bool isHdr
         bool bitMatches = targetBits == 10 && format == DXGI_FORMAT_R10G10B10A2_UNORM ||
                           targetBits == 8 && format == DXGI_FORMAT_B8G8R8A8_UNORM;
 
-        static bool firstPattern = true;
         if (firstPattern || !bitMatches) {
             if (targetBits == 8) {
                 format = DXGI_FORMAT_B8G8R8A8_UNORM;
@@ -972,7 +973,7 @@ void StartPGen(bool isHdr, int passive[3]) {
             while (true) {
                 int result = recv(clientSocket, buffer + bytesRead, 1, 0);
                 if (result > 0 && bytesRead != MAX_BUFFER_SIZE - 1) {
-                    if (buffer[bytesRead] == 0x0d && buffer[bytesRead - 1] == 0x2) {
+                    if (bytesRead > 0 && buffer[bytesRead] == 0x0d && buffer[bytesRead - 1] == 0x2) {
                         buffer[bytesRead - 1] = '\0';
                         break;
                     }
@@ -1092,8 +1093,9 @@ void InputReader(char *cmds[], int num_cmds) {
         if (cmds_processed < num_cmds) {
             input = std::string(cmds[cmds_processed++]);
             std::cout << input << std::endl;
-        } else {
-            getline(std::cin, input);
+        } else if (!std::getline(std::cin, input)) {
+            std::cout << "stdin closed, no further commands can be read" << std::endl;
+            return;
         }
         std::stringstream ss(input);
         std::string command_type;
@@ -1186,6 +1188,7 @@ void InputReader(char *cmds[], int num_cmds) {
                 p = new int[3];
                 if (!(ss >> p[0] >> p[1] >> p[2])) {
                     std::cout << "error: must specify r g b" << std::endl;
+                    delete[] p;
                     continue;
                 } else {
                     bool invalid = false;
@@ -1197,6 +1200,7 @@ void InputReader(char *cmds[], int num_cmds) {
                         }
                     }
                     if (invalid) {
+                        delete[] p;
                         continue;
                     }
                 }
@@ -1229,7 +1233,7 @@ void InputReader(char *cmds[], int num_cmds) {
                 continue;
             }
             if (maxCLL != -1) {
-                unsigned maxFALL, maxDML;
+                unsigned maxFALL = 0, maxDML = 0;
                 if (!(ss >> maxFALL) && ss.eof() && maxFALL != UINT_MAX) {
                     maxFALL = maxDML = maxCLL;
                 } else {
