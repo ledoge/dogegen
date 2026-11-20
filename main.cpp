@@ -310,7 +310,7 @@ bool parse_draw_command(const std::string &command_str, DrawCommand &command, fl
     if (!(ss >> command.x1 >> command.y1 >> command.x2 >> command.y2)) {
         return false;
     }
-    
+
     std::vector<int> values;
     values.reserve(14);
 
@@ -568,168 +568,130 @@ void drawPluge(bool hdr, bool tenbit, std::vector<DrawCommand> &commands) {
     }
 }
 
+// BT.2111-3 PQ colour bars. Laid out in 1080p units; scales exactly to 4K and 8K.
 void drawBars(bool limited, std::vector<DrawCommand> &commands) {
     const float maxV = 1023;
+    const int v = limited ? 0 : 1; // selects the limited or full range entry in the value tables
 
-    auto idx = [](char x) { return x - 'a'; };
+    // sizes a..k from BT.2111 Table 1, in units of the 1920x1080 reference grid
+    const int a = 1920, b = 1080, c = 240, d = 206, e = 204, f = 136, g = 70, h = 68, i = 238, j = 438, k = 282;
 
-    uint16_t bars[] = {1920, 1080, 240, 206, 204, 136, 70, 68, 238, 438, 282};
-    auto bar = [&](char x) { return isupper(x) ? (uint16_t) (bars[idx(tolower(x))] / 2) : bars[idx(x)]; };
-
-    auto drawCoords = [&](uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t rgb[3]) {
-        const float width = bar('a');
-        const float height = bar('b');
-
+    auto rect = [&](int x1, int y1, int x2, int y2, const uint16_t rgb[3]) {
         auto cmd = DrawCommand{};
-
-        for (int i = 0; i < 3; i++) {
-            float level = rgb[i] / maxV;
-            cmd.color1[i] = level;
-            cmd.color2[i] = level;
-            cmd.color3[i] = level;
-            cmd.color4[i] = level;
+        for (int ch = 0; ch < 3; ch++) {
+            cmd.color1[ch] = cmd.color2[ch] = cmd.color3[ch] = cmd.color4[ch] = rgb[ch] / maxV;
         }
-
-        cmd.x1 = -1 + 2 * x1 / width;
-        cmd.y1 = 1 - 2 * y1 / height;
-        cmd.x2 = -1 + 2 * x2 / width;
-        cmd.y2 = 1 - 2 * y2 / height;
-
+        cmd.x1 = -1 + 2 * x1 / (float) a;
+        cmd.y1 = 1 - 2 * y1 / (float) b;
+        cmd.x2 = -1 + 2 * x2 / (float) a;
+        cmd.y2 = 1 - 2 * y2 / (float) b;
         commands.push_back(cmd);
     };
 
-    int y = 0;
+    // each row is filled left to right, with every bar starting where the previous one ended
+    int x = 0, y = 0, rowHeight = 0;
+    auto newRow = [&](int height) {
+        y += rowHeight;
+        x = 0;
+        rowHeight = height;
+    };
+    auto bar = [&](int w, const uint16_t rgb[3]) {
+        rect(x, y, x + w, y + rowHeight, rgb);
+        x += w;
+    };
+    auto grayBar = [&](int w, uint16_t level) {
+        const uint16_t rgb[3] = {level, level, level};
+        bar(w, rgb);
+    };
 
+    // widths of the 7 colour bars (white, yellow, cyan, green, magenta, red, blue);
+    // rows 1-3 share this grid
+    const int barWidths[7] = {d, d, d, e, d, d, d};
+
+    // rows 1-2: 100% colour bars (b/12 high) above 58% colour bars (b/2 high),
+    // with a 40% gray bar on each side spanning both
     {
-        auto draw = [&](uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t rgb[3]) {
-            return drawCoords(x, y, x + w, y + h, rgb);
+        const uint16_t upper[2][7][3] = {
+                {{940,  940,  940},  {940,  940,  64}, {64, 940,  940},  {64, 940,  64}, {940,  64, 940},  {940,  64, 64}, {64, 64, 940}},
+                {{1023, 1023, 1023}, {1023, 1023, 0},  {0,  1023, 1023}, {0,  1023, 0},  {1023, 0,  1023}, {1023, 0,  0},  {0,  0,  1023}}
         };
-        uint16_t colors[2][15][3] = {
-                {{940,  940,  940},  {940,  940,  64}, {64, 940,  940},  {64, 940,  64}, {940,  64, 940},  {940,  64, 64}, {64, 64, 940},  {573, 573, 573}, {573, 573, 64}, {64, 573, 573}, {64, 573, 64}, {573, 64, 573}, {573, 64, 64}, {64, 64, 573}, {414, 414, 414}},
-                {{1023, 1023, 1023}, {1023, 1023, 0},  {0,  1023, 1023}, {0,  1023, 0},  {1023, 0,  1023}, {1023, 0,  0},  {0,  0,  1023}, {594, 594, 594}, {594, 594, 0},  {0,  594, 594}, {0,  594, 0},  {594, 0,  594}, {594, 0,  0},  {0,  0,  594}, {409, 409, 409}}
+        const uint16_t lower[2][7][3] = {
+                {{573, 573, 573}, {573, 573, 64}, {64, 573, 573}, {64, 573, 64}, {573, 64, 573}, {573, 64, 64}, {64, 64, 573}},
+                {{594, 594, 594}, {594, 594, 0},  {0,  594, 594}, {0,  594, 0},  {594, 0,  594}, {594, 0,  0},  {0,  0,  594}}
         };
-        auto color = [&](uint16_t idx) { return colors[limited ? 0 : 1][idx]; };
-        char widths[7] = {'d', 'd', 'd', 'e', 'd', 'd', 'd'};
-        uint16_t x = bar('c');
+        const uint16_t side[2][3] = {{414, 414, 414}, {409, 409, 409}};
 
-
-        uint16_t h1 = bar('b') / 12;
-        uint16_t h2 = bar('b') / 2;
-        int numBars = ARRAY_NUM(widths);
-        int i;
-        for (i = 0; i < numBars; i++) {
-            uint16_t width = bar(widths[i]);
-            draw(x, 0, width, h1, color(i));
-            draw(x, h1, width, h2, color(i + numBars));
-            x += width;
+        newRow(b / 12 + b / 2);
+        bar(c, side[v]);
+        for (int n = 0; n < 7; n++) {
+            rect(x, y, x + barWidths[n], y + b / 12, upper[v][n]);
+            rect(x, y + b / 12, x + barWidths[n], y + rowHeight, lower[v][n]);
+            x += barWidths[n];
         }
-
-        draw(0, 0, bar('c'), h1 + h2, color(i + numBars));
-        draw(x, 0, bar('c'), h1 + h2, color(i + numBars));
-
-        y += h1 + h2;
+        bar(c, side[v]);
     }
 
+    // row 3: gray steps from -7% to 109% (0% to 100% in full range) between 58% white ends;
+    // the first step sits under the white bar, and every other bar has two half-width steps under it
     {
-        uint16_t x = 0;
-        uint16_t h = bar('b') / 12;
-
-        auto draw = [&](uint16_t w, uint16_t level) {
-            uint16_t rgb[3] = {level, level, level};
-            drawCoords(x, y, x + w, y + h, rgb);
-            x += w;
-        };
-        uint16_t levels[2][15] = {
+        const uint16_t levels[2][15] = {
                 {573, 4, 64, 152, 239, 327, 414, 502, 590, 677, 765, 852, 940,  1019, 573},
                 {594, 0, 0,  102, 205, 307, 409, 512, 614, 716, 818, 921, 1023, 1023, 594}
         };
-        auto level = [&](uint16_t idx) { return levels[limited ? 0 : 1][idx]; };
-        char widths[15] = {'c', 'd', 'D', 'D', 'D', 'D', 'E', 'E', 'D', 'D', 'D', 'D', 'D', 'D', 'c'};
+        const uint16_t *level = levels[v];
 
-        int numBars = ARRAY_NUM(widths);
-        int i;
-        for (i = 0; i < numBars; i++) {
-            uint16_t width = bar(widths[i]);
-            draw(width, level(i));
-        }
-
-        y += h;
-    }
-
-    {
-        uint16_t x = 0;
-        uint16_t h = bar('b') / 12;
-
-        auto draw = [&](uint16_t w, uint16_t level) {
-            uint16_t rgb[3] = {level, level, level};
-            drawCoords(x, y, x + w, y + h, rgb);
-            x += w;
-        };
-        uint16_t levels[2][3] = {
-                {64, 4, 1019},
-                {0,  0, 1023}
-        };
-
-        auto level = [&](uint16_t idx) { return levels[limited ? 0 : 1][idx]; };
-        uint16_t widths[3] = {bar('c'), (uint16_t) (limited ? 559 : 618), (uint16_t) (limited ? 107 : 40)};
-        uint16_t gradientWidth = limited ? 1014 : 1022;
-
-        int numBars = ARRAY_NUM(widths);
-        for (int i = 0; i < numBars; i++) {
-            uint16_t width = widths[i];
-            draw(width, level(i));
-            if (i == 1) {
-                draw(gradientWidth, level(2));
-                auto cmd = &commands.back();
-                for (int j = 0; j < 3; j++) {
-                    cmd->color1[j] = cmd->color3[j] = (level(1) + 1) / maxV;
-                }
-                cmd->quant = 1 / maxV;
+        newRow(b / 12);
+        grayBar(c, *level++);
+        grayBar(barWidths[0], *level++);
+        for (int n = 1; n < 7; n++) {
+            for (int half = 0; half < 2; half++) {
+                grayBar(barWidths[n] / 2, *level++);
             }
         }
-
-        y += h;
+        grayBar(c, *level++);
     }
 
+    // row 4: 0% black, then -7% (B), the ramp (C) and 109% (D) (0% and 100% in full range);
+    // the ramp covers every code value between B and D, one per 1/1920 of the width
     {
-        uint16_t x = 0;
-        uint16_t h = bar('b') / 4;
+        const uint16_t edge[2] = {64, 0};
+        const uint16_t start[2] = {4, 0};
+        const uint16_t end[2] = {1019, 1023};
+        const int widths[2][3] = {{559, 1014, 107}, {618, 1022, 40}}; // widths of segments B, C, D (Tables 5 and 6)
 
-        auto draw = [&](uint16_t w, uint16_t rgb[3]) {
-            drawCoords(x, y, x + w, y + h, rgb);
-            x += w;
-        };
+        newRow(b / 12);
+        grayBar(c, edge[v]);
+        grayBar(widths[v][0], start[v]);
+        grayBar(widths[v][1], end[v]);
+        auto &ramp = commands.back();
+        for (int ch = 0; ch < 3; ch++) {
+            ramp.color1[ch] = ramp.color3[ch] = (start[v] + 1) / maxV; // ramp starts one code above B
+        }
+        ramp.quant = 1 / maxV;
+        grayBar(widths[v][2], end[v]);
+    }
 
-        auto drawGray = [&](uint16_t w, uint16_t level) {
-            uint16_t rgb[3] = {level, level, level};
-            draw(w, rgb);
-        };
-
-        uint16_t colors[2][6][3] = {
+    // row 5: BT.709 colour bars on both ends; between them black level patches, 58% white and 0% black
+    {
+        const uint16_t colors[2][6][3] = {
                 {{569, 572, 381}, {485, 566, 571}, {474, 565, 368}, {537, 362, 564}, {531, 351, 257}, {318, 236, 563}},
                 {{589, 593, 370}, {491, 586, 592}, {479, 585, 355}, {552, 348, 584}, {545, 335, 225}, {296, 201, 582}}
         };
-        uint16_t grays[2][9] = {
+        const uint16_t grays[2][9] = {
                 {64, 48, 64, 80, 64, 99, 64, 573, 64},
                 {0,  0,  0,  19, 0,  41, 0,  594, 0}
         };
+        const int widths[9] = {f, g, h, g, h, g, i, j, k};
 
-        auto color = [&](uint16_t idx) { return colors[limited ? 0 : 1][idx]; };
-        auto gray = [&](uint16_t idx) { return grays[limited ? 0 : 1][idx]; };
-        char widths[9] = {'f', 'g', 'h', 'g', 'h', 'g', 'i', 'j', 'k'};
-
-        const int numColors = ARRAY_NUM(colors[0]);
-        for (int i = 0; i < numColors / 2; i++) {
-            draw(bar('c') / 3, color(i));
+        newRow(b / 4);
+        for (int n = 0; n < 3; n++) {
+            bar(c / 3, colors[v][n]);
         }
-
-        const int numGrays = ARRAY_NUM(grays[0]);
-        for (int i = 0; i < numGrays; i++) {
-            drawGray(bar(widths[i]), gray(i));
+        for (int n = 0; n < 9; n++) {
+            grayBar(widths[n], grays[v][n]);
         }
-
-        for (int i = numColors / 2; i < numColors; i++) {
-            draw(bar('c') / 3, color(i));
+        for (int n = 3; n < 6; n++) {
+            bar(c / 3, colors[v][n]);
         }
     }
 }
