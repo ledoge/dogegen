@@ -36,29 +36,32 @@ char shaders[] = STRINGIFY(
         float2 pos : POSITION;
         float3 color : COL;
         float quant : COL1;
+        float quantOffset : COL2;
     };
 
     struct VS_Output
     {
         float4 color : COL;
         float quant : COL1;
+        float quantOffset : COL2;
         float4 position : SV_POSITION;
     };
 
-    VS_Output vs_main(float2 pos : POSITION, float3 color : COL, float quant : COL1)
+    VS_Output vs_main(float2 pos : POSITION, float3 color : COL, float quant : COL1, float quantOffset : COL2)
     {
         VS_Output output;
         output.position = float4(pos.xy, 0.0f, 1.0f);
         output.color = float4(color.xyz, 1);
         output.quant = quant;
+        output.quantOffset = quantOffset;
 
         return output;
     }
 
-    float4 ps_main(float4 color : COL, nointerpolation float quant: COL1) : SV_TARGET
+    float4 ps_main(float4 color : COL, nointerpolation float quant: COL1, nointerpolation float quantOffset: COL2) : SV_TARGET
     {
         if (quant != 0) {
-            return floor(color / quant) * quant;
+            return floor((color - quantOffset) / quant) * quant + quantOffset;
         }
         return color;
     }
@@ -139,6 +142,7 @@ struct DrawCommand {
     float color3[3];
     float color4[3];
     float quant;
+    float quantOffset = 0;
 };
 
 
@@ -223,6 +227,65 @@ bool parse_window_command(std::stringstream &ss, DrawCommand &command, float max
     return true;
 }
 
+bool parse_gradient_command(std::stringstream &ss, DrawCommand &command, float maxV) {
+    int start, end;
+    if (!(ss >> start >> end)) {
+        return false;
+    }
+
+    if (start < 0 || start > maxV || end < 0 || end > maxV) {
+        return false;
+    }
+
+    // optional step size, default 1
+    int step = 1;
+    if (!(ss >> step)) {
+        if (!ss.eof()) {
+            return false;
+        }
+        step = 1;
+    } else {
+        std::string extra;
+        if (ss >> extra) {
+            return false;
+        }
+    }
+
+    if (step <= 0) {
+        return false;
+    }
+
+    // range must split into whole steps
+    if ((end - start) % step != 0) {
+        return false;
+    }
+
+    int left = start, right = end;
+    if (start <= end) {
+        right = end + step;
+    } else {
+        left = start + step;
+    }
+
+    command.x1 = -1;
+    command.y1 = 1;
+    command.x2 = 1;
+    command.y2 = -1;
+
+    for (int i = 0; i < 3; i++) {
+        command.color1[i] = left / maxV;
+        command.color2[i] = right / maxV;
+        command.color3[i] = left / maxV;
+        command.color4[i] = right / maxV;
+    }
+
+    command.quant = step / maxV;
+    // snap to start + k * step instead of k * step (0 when start is already a multiple of step)
+    command.quantOffset = (start % step) / maxV;
+
+    return true;
+}
+
 bool parse_draw_command(const std::string &command_str, DrawCommand &command, float maxV) {
     std::stringstream ss(command_str);
 
@@ -236,6 +299,10 @@ bool parse_draw_command(const std::string &command_str, DrawCommand &command, fl
         return parse_window_command(ss, command, maxV);
     }
 
+    if (type == "gradient") {
+        return parse_gradient_command(ss, command, maxV);
+    }
+
     if (type != "draw") {
         return false;
     }
@@ -243,18 +310,18 @@ bool parse_draw_command(const std::string &command_str, DrawCommand &command, fl
     if (!(ss >> command.x1 >> command.y1 >> command.x2 >> command.y2)) {
         return false;
     }
-
+    
     std::vector<int> values;
-    values.reserve(13);
+    values.reserve(14);
 
     {
         int tmp;
-        while (values.size() < 13 && ss >> tmp) {
+        while (values.size() < 14 && ss >> tmp) {
             values.push_back(tmp);
         }
     }
 
-    if (values.size() != 3 && values.size() != 13) {
+    if (values.size() != 3 && values.size() != 13 && values.size() != 14) {
         return false;
     }
 
@@ -272,6 +339,7 @@ bool parse_draw_command(const std::string &command_str, DrawCommand &command, fl
     }
 
     command.quant = values[12] / maxV;
+    command.quantOffset = values.size() == 14 ? values[13] / maxV : 0;
 
     return true;
 }
@@ -1297,7 +1365,8 @@ void InputReader(char *cmds[], int num_cmds) {
             the_input = tmp;
             print_ok = true;
             set_pending();
-        } else if (command_type == "draw" || command_type == "window" || command_type.empty()) {
+        } else if (command_type == "draw" || command_type == "window" || command_type == "gradient" ||
+                   command_type.empty()) {
             auto tmp = new std::vector<DrawCommand>;
             if (parse_draw_string(input, *tmp)) {
                 print_ok = true;
@@ -1583,6 +1652,7 @@ int main(int argc, char *argv[]) {
                         {"POSITION", 0, DXGI_FORMAT_R32G32_FLOAT,    0, 0,                            D3D11_INPUT_PER_VERTEX_DATA, 0},
                         {"COL",      0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
                         {"COL",      1, DXGI_FORMAT_R32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
+                        {"COL",      2, DXGI_FORMAT_R32_FLOAT,       0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
 
                 };
 
@@ -1599,7 +1669,7 @@ int main(int argc, char *argv[]) {
     UINT stride;
     UINT offset;
     {
-        stride = 6 * sizeof(float);
+        stride = 7 * sizeof(float);
         numVerts = 4;
         offset = 0;
 
@@ -1720,11 +1790,11 @@ int main(int argc, char *argv[]) {
 
             D3D11_MAPPED_SUBRESOURCE resource;
             deviceContext->Map(vertexBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &resource);
-            float the[4][6] = {
-                    c.x1, c.y1, c.color1[0], c.color1[1], c.color1[2], c.quant,
-                    c.x2, c.y1, c.color2[0], c.color2[1], c.color2[2], c.quant,
-                    c.x1, c.y2, c.color3[0], c.color3[1], c.color3[2], c.quant,
-                    c.x2, c.y2, c.color4[0], c.color4[1], c.color4[2], c.quant,
+            float the[4][7] = {
+                    c.x1, c.y1, c.color1[0], c.color1[1], c.color1[2], c.quant, c.quantOffset,
+                    c.x2, c.y1, c.color2[0], c.color2[1], c.color2[2], c.quant, c.quantOffset,
+                    c.x1, c.y2, c.color3[0], c.color3[1], c.color3[2], c.quant, c.quantOffset,
+                    c.x2, c.y2, c.color4[0], c.color4[1], c.color4[2], c.quant, c.quantOffset,
             };
 
             memcpy(resource.pData, the, stride * numVerts);
